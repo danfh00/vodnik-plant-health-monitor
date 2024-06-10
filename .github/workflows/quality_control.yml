@@ -27,8 +27,9 @@ jobs:
         run: |
           if ls *.py &>/dev/null; then
             pytest
+            echo "Ran pytest"
           else
-            echo "Ran Pytest"
+            echo "No python files to test"
       - name: "Run Pylint"
         run: |
           pylint --fail-under=8 *.py
