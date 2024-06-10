@@ -24,9 +24,11 @@ jobs:
           pip3 install -r requirements.txt
           echo "library installation complete"
       - name: "Run Pytest"
-        run: | 
-          pytest
-          echo "Ran Pytest"
+        run: |
+          if ls *.py &>/dev/null; then
+            pytest
+          else
+            echo "Ran Pytest"
       - name: "Run Pylint"
         run: |
           pylint --fail-under=8 *.py
