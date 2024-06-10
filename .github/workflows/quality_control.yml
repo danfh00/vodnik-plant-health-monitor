@@ -33,6 +33,10 @@ jobs:
           fi
       - name: "Run Pylint"
         run: |
-          pylint --fail-under=8 *.py
-          echo "Ran Pylint"
+          if ls *.py &./dev/null; then
+            pylint --fail-under=8 *.py
+            echo "Ran pylint checks"
+          else
+            echo "No python files to lint"
+          fi
 
