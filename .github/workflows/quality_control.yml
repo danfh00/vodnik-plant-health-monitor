@@ -30,6 +30,7 @@ jobs:
             echo "Ran pytest"
           else
             echo "No python files to test"
+          fi
       - name: "Run Pylint"
         run: |
           pylint --fail-under=8 *.py
