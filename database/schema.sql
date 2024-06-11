@@ -27,12 +27,16 @@ GO
 
 CREATE TABLE gamma.plants(
     plant_id SMALLINT IDENTITY(1,1) PRIMARY KEY,
-    scientific_name VARCHAR(100) UNIQUE DEFAULT NULL,
+    scientific_name VARCHAR(100),
     common_name VARCHAR(100) UNIQUE NOT NULL, 
     location_id SMALLINT NOT NULL,
     FOREIGN KEY (location_id) REFERENCES gamma.locations(location_id)   
 );
 GO
+
+CREATE UNIQUE INDEX IX_plants_scientific_name
+ON gamma.plants(scientific_name)
+WHERE scientific_name IS NOT NULL;
 
 CREATE TABLE gamma.botanists(
     botanists_id SMALLINT IDENTITY(1,1) PRIMARY KEY,

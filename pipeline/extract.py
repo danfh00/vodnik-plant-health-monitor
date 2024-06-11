@@ -1,6 +1,9 @@
+"""This file is responsible for seeding the database"""
+# pylint: disable=C0301, E1101, C0116
+
+import os
 import asyncio
 import aiohttp
-import os
 import requests
 import pymssql
 from dotenv import load_dotenv
@@ -15,6 +18,7 @@ DB_SCHEMA = os.getenv('DB_SCHEMA')
 
 
 def create_connection(host: str, username: str, password: str, database_name: str) -> pymssql.Connection:
+    """Creates a pymssql connection to the appropriate database"""
     return pymssql.connect(server=host,
                            user=username,
                            password=password,
@@ -85,9 +89,28 @@ def get_unique_locations(responses: list[str], timezone_map: dict, country_code_
 
                 if timezone_id and country_code_id:
                     unique_locations.add(
-                        (location_name, location_lat, location_lon, timezone_id, country_code_id))
+                        (location_name, location_lat, location_lon, timezone_id, country_code_id),)
 
     return list(unique_locations)
+
+
+def get_unique_plants(responses: list[str], locations_map: dict) -> list[tuple]:
+    unique_plants = set()
+    for response in responses:
+        if 'error' not in response:
+            name = response.get('name')
+            scientific_name = response.get('scientific_name')
+            location_data = response.get('origin_location')
+
+            lat_and_lon_tuple = (
+                float(location_data[0]), float(location_data[1]),)
+            associated_location_id = locations_map.get(lat_and_lon_tuple)
+
+            if associated_location_id:
+                unique_plants.add(
+                    (scientific_name[0] if scientific_name else scientific_name, name, associated_location_id),)
+
+    return list(unique_plants)
 
 
 def populate_timezones(timezone_name: list[tuple], schema: str) -> None:
@@ -98,7 +121,7 @@ def populate_timezones(timezone_name: list[tuple], schema: str) -> None:
 
     try:
         cursor.executemany(
-            f"INSERT INTO {schema}.timezones VALUES (%s)", timezone_name)
+            f"INSERT INTO {schema}.timezones (timezone) VALUES (%s)", timezone_name)
         conn.commit()
     except Exception as e:
         print(f"Error: {e}")
@@ -116,7 +139,25 @@ def populate_country_codes(country_codes: list[tuple], schema: str) -> None:
 
     try:
         cursor.executemany(
-            f"INSERT INTO {schema}.country_codes VALUES (%s)", country_codes)
+            f"INSERT INTO {schema}.country_codes (country_code) VALUES (%s)", country_codes)
+        conn.commit()
+    except Exception as e:
+        print(f"Error: {e}")
+        conn.rollback()
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def populate_plants(plant_data: list[tuple], schema: str) -> None:
+    """Populates the timezones table"""
+    conn = create_connection(DB_HOST, DB_USERNAME,
+                             DB_PASSWORD, DB_NAME)
+    cursor = conn.cursor()
+
+    try:
+        cursor.executemany(
+            f"INSERT INTO {schema}.plants (scientific_name, common_name, location_id) VALUES (%s, %s, %s)", plant_data)
         conn.commit()
     except Exception as e:
         print(f"Error: {e}")
@@ -149,6 +190,18 @@ def get_country_code_id_map(schema: str) -> dict:
     return {row[1]: row[0] for row in rows}
 
 
+def get_locations_id_map(schema: str) -> dict:
+    '''Creates a dict of each location and its associated ID'''
+    conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT location_id, location_lat, location_lon FROM {
+                   schema}.locations")
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return {(float(row[1]), float(row[2]),): row[0] for row in rows}
+
+
 def populate_locations(all_locations: list[tuple], schema: str) -> None:
     """Populates the locations table"""
     conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
@@ -167,35 +220,21 @@ def populate_locations(all_locations: list[tuple], schema: str) -> None:
 
 
 if __name__ == '__main__':
-    plant_ids = range(1, 51)
-    responses = asyncio.run(get_all_responses(plant_ids))
+    all_plant_ids = range(1, 51)
+    all_responses = asyncio.run(get_all_responses(all_plant_ids))
 
-    # timezones = get_unique_timezones(responses)
-    # populate_timezones(timezones, DB_SCHEMA)
+    timezones = get_unique_timezones(all_responses)
+    populate_timezones(timezones, DB_SCHEMA)
 
-    # all_country_codes = get_unique_country_codes(responses)
-    # populate_country_codes(all_country_codes, DB_SCHEMA)
+    all_country_codes = get_unique_country_codes(all_responses)
+    populate_country_codes(all_country_codes, DB_SCHEMA)
 
     timezone_data = get_timezone_id_map(DB_SCHEMA)
-    country_code_data = get_country_code_id_map(DB_SCHEMA)
+    country_code_mapping = get_country_code_id_map(DB_SCHEMA)
+    location_values = get_unique_locations(
+        all_responses, timezone_data, country_code_mapping)
+    populate_locations(location_values, DB_SCHEMA)
 
-    data = get_unique_locations(responses, timezone_data, country_code_data)
-
-    populate_locations(data, DB_SCHEMA)
-
-    # for id in range(1, 51):
-    #     json = get_plant_data(id)
-
-    #     lat = json.get('origin_location')[0]
-    #     lon = json.get('origin_location')[1]
-    #     city = json.get('origin_location')[2]
-    #     country_code = json.get('origin_location')[3]
-    #     timezones.append(json.get('origin_location')[4])
-
-    #     name = json.get('name')
-    #     scientific_name = json.get('scientific_name')
-
-    #     reading_at = json.get('recording_taken')
-    #     moisture = json.get('soil_moisture')
-    #     temp = json.get('temperature')
-    #     watered_at = json.get('last_watered')
+    location_mapping = get_locations_id_map(DB_SCHEMA)
+    plant_values = get_unique_plants(all_responses, location_mapping)
+    populate_plants(plant_values, DB_SCHEMA)
