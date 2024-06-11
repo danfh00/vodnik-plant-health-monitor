@@ -16,8 +16,8 @@ GO
 CREATE TABLE gamma.locations(
     location_id SMALLINT IDENTITY(1,1) PRIMARY KEY,
     location_name VARCHAR(50) NOT NULL,
-    location_lat DECIMAL NOT NULL, 
-    location_lon DECIMAL NOT NULL,
+    location_lat DECIMAL(10, 7) NOT NULL, 
+    location_lon DECIMAL(10, 7) NOT NULL,
     timezone_id SMALLINT NOT NULL,
     country_code_id SMALLINT NOT NULL,
     FOREIGN KEY (timezone_id) REFERENCES gamma.timezones(timezone_id),
