@@ -27,7 +27,7 @@ GO
 
 CREATE TABLE gamma.plants(
     plant_id SMALLINT IDENTITY(1,1) PRIMARY KEY,
-    scientific_name VARCHAR(100) UNIQUE NOT NULL,
+    scientific_name VARCHAR(100) UNIQUE DEFAULT NULL,
     common_name VARCHAR(100) UNIQUE NOT NULL, 
     location_id SMALLINT NOT NULL,
     FOREIGN KEY (location_id) REFERENCES gamma.locations(location_id)   
