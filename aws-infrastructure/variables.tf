@@ -11,3 +11,8 @@ variable "AWS_REGION" {
     default = "eu-west-2"
   
 }
+
+variable "HISTORICAL_BUCKET_NAME" {
+    type = string
+    default = "vodnik-historical-readings"
+}
