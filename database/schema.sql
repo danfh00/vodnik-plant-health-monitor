@@ -1,4 +1,4 @@
-DROP TABLE IF EXISTS botanists, timezones, plants, locations, plants
+DROP TABLE IF EXISTS readings, botanists, plants, locations, timezones, country_codes
 
 
 CREATE TABLE botanists(
@@ -36,4 +36,16 @@ CREATE TABLE plants(
     scientific_name VARCHAR(100) UNIQUE NOT NULL,
     common_name VARCHAR(100) UNIQUE NOT NULL, 
     FOREIGN KEY (location_id) REFERENCES locations(location_id)   
+);
+
+CREATE TABLE readings (
+    reading_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    plant_id SMALLINT NOT NULL,
+    reading_at TIMESTAMP NOT NULL,
+    moisture DECIMAL(5, 2) NOT NULL,
+    temp DECIMAL(5, 2) NOT NULL,
+    botanist_id SMALLINT NOT NULL,
+    watered_at TIMESTAMP NOT NULL,
+    FOREIGN KEY (plant_id) REFERENCES plants(plant_id),
+    FOREIGN KEY (botanist_id) REFERENCES botanists(botanist_id)
 );
