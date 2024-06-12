@@ -9,6 +9,7 @@ def extract_plant_data(plant_data: dict) -> dict:
     """ Extracts all the relevant data from the API for a single plant"""
     botanists_info = plant_data.get('botanist')
     location_info = plant_data.get('origin_location')
+    scientific_name = plant_data.get('scientific_name')
     data = {
         "first_name": botanists_info.get('name').split()[0],
         "last_name": botanists_info.get('name').split()[1],
@@ -16,7 +17,7 @@ def extract_plant_data(plant_data: dict) -> dict:
         "phone_number": botanists_info.get('phone'),
         "plant_id": plant_data.get('plant_id'),
         "common_name": plant_data.get('name'),
-        "scientific_name": plant_data.get('scientific_name'),
+        "scientific_name": scientific_name[0] if scientific_name else None,
         "reading_at": plant_data.get('recording_taken'),
         "temperature": plant_data.get('temperature'),
         "moisture": plant_data.get('soil_moisture'),
@@ -74,4 +75,4 @@ def transform() -> tuple:
 
 if __name__ == '__main__':
     data = transform()
-    print(type(data))
+    print(data)
