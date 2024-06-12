@@ -1,3 +1,6 @@
 pylint
 pytest
-requests
+pymssql
+python-dotenv
+asyncio
+aiohttp
