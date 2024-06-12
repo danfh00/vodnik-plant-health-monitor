@@ -105,20 +105,18 @@ def populate_readings(readings_df: pd.DataFrame, schema: str) -> None:
 
 if __name__ == "__main__":
 
-    botanist_data = pd.DataFrame({
-        'botanist_id': 2,
+    botanist_data = pd.DataFrame([{
         'first_name': ['Eliza'],
         'last_name': ['Andrews'],
         'email': ['eliza.andrews@lnhm.co.uk'],
         'phone_number': ['(846)669-6651x75948'],
     },
         {
-        'botanist_id': 3,
         'first_name': ['Eliza'],
         'last_name': ['Andrews'],
         'email': ['eliza.andrews@lnhm.co.uk'],
         'phone_number': ['(846)669-6651x75948'],
-    })
+    }])
 
     # location_data = pd.DataFrame({
     #     location_id SMALLINT IDENTITY(1, 1) PRIMARY KEY,
@@ -128,8 +126,9 @@ if __name__ == "__main__":
     #     timezone_id SMALLINT NOT NULL,
     #     country_code_id SMALLINT NOT NULL, })
 
-    reading_data = pd.DataFrame({
+    reading_data = pd.DataFrame([{
         "plant_id": 1,
+        "botanist_id": 2,
         "reading_at": "2024-06-12 11:17:55",
         "moisture": 26.6547137768116,
         "temp": 10.588249721728,
@@ -137,10 +136,11 @@ if __name__ == "__main__":
     },
         {
         "plant_id": 2,
+        "botanist_id": 3,
         "reading_at": "2024-06-12 11:17:55",
         "moisture": 26.6547137768116,
         "temp": 10.588249721728,
-        "watered_at": "2024-06-11 14:12:43"})
+        "watered_at": "2024-06-11 14:12:43"}])
 
     populate_readings(reading_data, DB_SCHEMA)
 
