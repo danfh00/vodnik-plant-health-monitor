@@ -1,7 +1,11 @@
 pylint
 pytest
+<<<<<<< seed-entire-database
 requests
 pymssql
 python-dotenv
 asyncio
 aiohttp
+=======
+requests
+>>>>>>> main
