@@ -1,4 +1,5 @@
-from seeding import get_unique_timezones
+from unittest.mock import MagicMock, patch
+from seeding import get_unique_timezones, populate_timezones
 import pytest
 
 
@@ -21,5 +22,31 @@ def generate_response():
     ]
 
 
+@pytest.fixture
+def mock_create_connection():
+    with patch('pymssql.connect') as mock:
+        yield mock
+
+
 def test_get_unique_timezones(generate_response):
     assert len(get_unique_timezones(generate_response)) == 5
+
+
+def test_populate_timezones(mock_create_connection):
+    timezone_names = [("America/Chicago",),
+                      ("America/Los_Angeles",), ("Europe/Berlin",)]
+    test_schema = "test_schema"
+
+    mock_cursor = MagicMock()
+    mock_conn = MagicMock()
+    mock_conn.cursor.return_value = mock_cursor
+    mock_create_connection.return_value = mock_conn
+
+    populate_timezones(timezone_names, test_schema)
+
+    mock_cursor.executemany.assert_called_once_with(
+        f"INSERT INTO {test_schema}.timezones (timezone) VALUES (%s)", timezone_names)
+
+    mock_conn.commit.assert_called_once()
+    mock_cursor.close.assert_called_once()
+    mock_conn.close.assert_called_once()
