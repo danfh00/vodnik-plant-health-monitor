@@ -1,7 +1,6 @@
 """This file extracts data from a plant API."""
 import asyncio
 import aiohttp
-import pandas as pd
 
 
 async def fetch_plant_data(session, plant_id: int) -> dict:
