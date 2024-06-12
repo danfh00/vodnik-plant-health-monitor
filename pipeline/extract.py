@@ -1,3 +1,4 @@
+"""This file extracts data from a plant API."""
 import asyncio
 import aiohttp
 import pandas as pd
@@ -22,63 +23,40 @@ async def get_all_responses(plant_ids: list[int]) -> list[dict]:
 
 
 def get_relevant_data(plant_data: dict) -> dict:
-    # Botanists data
+    """ Extracts all the relevant data from the API for a single plant"""
     botanists_data = plant_data.get('botanist')
-    fname, lname = botanists_data.get('name').split()
-    email = botanists_data.get('email')
-    phone = botanists_data.get('phone')
-
-    # Plant data
-    plant_id = plant_data.get('plant_id')
-    plant_name = plant_data.get('name')
-    scientific_name = plant_data.get('scientific_name')
-
-    # Reading data
-    reading_at = plant_data.get('recording_taken')
-    moisture = plant_data.get('soil_moisture')
-    temperature = plant_data.get('temperature')
-    last_watered = plant_data.get('last_watered')
-
-    # Location data
-    location_name = plant_data.get("origin_location")[2]
-    latitude = plant_data.get("origin_location")[0]
-    longitude = plant_data.get("origin_location")[1]
-    country_code = plant_data.get("origin_location")[3]
-    timezone = plant_data.get("origin_location")[4]
-
     data = {
-        "first_name": fname,
-        "last_name": lname,
-        "email": email,
-        "phone": phone,
-        "plant_id": plant_id,
-        "plant_name": plant_name,
-        "scientific_name": scientific_name,
-        "reading_at": reading_at,
-        "temperature": temperature,
-        "moisture": moisture,
-        "last_watered": last_watered,
-        "location_name": location_name,
-        "location_lat": latitude,
-        "location_lon": longitude,
-        "country_code": country_code,
-        "timezone": timezone
+        "first_name": botanists_data.get('name').split()[0],
+        "last_name": botanists_data.get('name').split()[1],
+        "email": botanists_data.get('email'),
+        "phone": botanists_data.get('phone'),
+        "plant_id": plant_data.get('plant_id'),
+        "plant_name": plant_data.get('name'),
+        "scientific_name": plant_data.get('scientific_name'),
+        "reading_at": plant_data.get('recording_taken'),
+        "temperature": plant_data.get('temperature'),
+        "moisture": plant_data.get('soil_moisture'),
+        "last_watered": plant_data.get('last_watered'),
+        "location_name": plant_data.get("origin_location")[2],
+        "location_lat": plant_data.get("origin_location")[0],
+        "location_lon": plant_data.get("origin_location")[1],
+        "country_code": plant_data.get("origin_location")[3],
+        "timezone": plant_data.get("origin_location")[4]
     }
     return data
 
 
-def create_dataframe(plants: list[dict]) -> pd.DataFrame:
+def create_plants_dataframe(plants: list[dict]) -> pd.DataFrame:
+    """Converts dictionary of plant data into a dataframe"""
     dataset = []
     for plant in plants:
         if not plant.get('error'):
             dataset.append(get_relevant_data(plant))
-    df = pd.DataFrame(dataset)
-    print(df)
-    # return df
+    plant_df = pd.DataFrame(dataset)
+    return plant_df
 
 
 if __name__ == '__main__':
     all_plant_ids = range(1, 51)
-    all_responses = asyncio.run(get_all_responses(
-        all_plant_ids))  # returns a list of dicts
-    create_dataframe(all_responses)
+    all_plants = asyncio.run(get_all_responses(all_plant_ids))
+    create_plants_dataframe(all_plants)
