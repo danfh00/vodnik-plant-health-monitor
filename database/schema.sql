@@ -25,11 +25,25 @@ CREATE TABLE gamma.locations(
 );
 GO
 
+CREATE TABLE gamma.scientific_plant_names(
+    scientific_plant_name_id SMALLINT IDENTITY(1, 1) PRIMARY KEY,
+    scientific_name VARCHAR(100) UNIQUE NOT NULL
+);
+GO
+
+CREATE TABLE gamma.common_plant_names(
+    common_plant_name_id SMALLINT IDENTITY(1, 1) PRIMARY KEY,
+    common_name VARCHAR(100) UNIQUE NOT NULL
+);
+GO
+
 CREATE TABLE gamma.plants(
     plant_id SMALLINT IDENTITY(1,1) PRIMARY KEY,
-    scientific_name VARCHAR(100),
-    common_name VARCHAR(100) UNIQUE NOT NULL, 
+    scientific_name_id VARCHAR(100),
+    common_name_id SMALLINT NOT NULL,
     location_id SMALLINT NOT NULL,
+    FOREIGN KEY (scientific_name_id) REFERENCES gamma.scientific_plant_names(scientific_plant_name_id),
+    FOREIGN KEY (common_name_id) REFERENCES gamma.common_plant_names(common_plant_name_id),
     FOREIGN KEY (location_id) REFERENCES gamma.locations(location_id)   
 );
 GO

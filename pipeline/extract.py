@@ -4,7 +4,6 @@
 import os
 import asyncio
 import aiohttp
-import requests
 import pymssql
 from dotenv import load_dotenv
 
@@ -25,19 +24,8 @@ def create_connection(host: str, username: str, password: str, database_name: st
                            database=database_name)
 
 
-def get_plant_data(plant_id: int) -> dict:
-    """Returns plant data in json format from an API using plant ID"""
-    try:
-        response = requests.get(
-            f"https://data-eng-plants-api.herokuapp.com/plants/{plant_id}", timeout=20)
-        json = response.json()
-        return json
-
-    except requests.exceptions.Timeout:
-        return {"error": "Unable to connect to the API."}
-
-
-async def fetch_plant_data(session, plant_id: int) -> list[dict]:
+async def fetch_plant_data(session, plant_id: int) -> dict:
+    "Creates all requests and fetches all of them concurrently"
     try:
         async with session.get(f"https://data-eng-plants-api.herokuapp.com/plants/{plant_id}", timeout=20) as response:
             return await response.json()
@@ -45,7 +33,8 @@ async def fetch_plant_data(session, plant_id: int) -> list[dict]:
         return {"error": "Unable to connect to the API."}
 
 
-async def get_all_responses(plant_ids: list[int]) -> list[str]:
+async def get_all_responses(plant_ids: list[int]) -> list[dict]:
+    "Combines all requests into a list of dicts"
     async with aiohttp.ClientSession() as session:
         tasks = [fetch_plant_data(session, plant_id) for plant_id in plant_ids]
         responses = await asyncio.gather(*tasks)
@@ -54,6 +43,7 @@ async def get_all_responses(plant_ids: list[int]) -> list[str]:
 
 
 def get_unique_timezones(responses: list[str]) -> list[tuple]:
+    "Finds all unique timezones"
     unique_timezones = set()
     for response in responses:
         if 'error' not in response:
@@ -64,6 +54,7 @@ def get_unique_timezones(responses: list[str]) -> list[tuple]:
 
 
 def get_unique_country_codes(responses: list[str]) -> list[tuple]:
+    "Finds all unique country codes"
     unique_country_codes = set()
     for response in responses:
         if 'error' not in response:
@@ -74,6 +65,7 @@ def get_unique_country_codes(responses: list[str]) -> list[tuple]:
 
 
 def get_unique_locations(responses: list[str], timezone_map: dict, country_code_map: dict) -> list[tuple]:
+    "Finds all unique locations"
     unique_locations = set()
     for response in responses:
         if 'error' not in response:
@@ -95,6 +87,7 @@ def get_unique_locations(responses: list[str], timezone_map: dict, country_code_
 
 
 def get_unique_plants(responses: list[str], locations_map: dict) -> list[tuple]:
+    """Finds all the unique plants"""
     unique_plants = set()
     for response in responses:
         if 'error' not in response:
@@ -168,7 +161,7 @@ def populate_plants(plant_data: list[tuple], schema: str) -> None:
 
 
 def get_timezone_id_map(schema: str) -> dict:
-    '''Creates a dict of each timezone and its associated ID'''
+    """Creates a dict of each timezone and its associated ID"""
     conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
     cursor = conn.cursor()
     cursor.execute(f"SELECT timezone_id, timezone FROM {schema}.timezones")
@@ -179,7 +172,7 @@ def get_timezone_id_map(schema: str) -> dict:
 
 
 def get_country_code_id_map(schema: str) -> dict:
-    '''Creates a dict of each country code and its associated ID'''
+    """Creates a dict of each country code and its associated ID"""
     conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
     cursor = conn.cursor()
     cursor.execute(f"SELECT country_code_id, country_code FROM {
@@ -191,7 +184,7 @@ def get_country_code_id_map(schema: str) -> dict:
 
 
 def get_locations_id_map(schema: str) -> dict:
-    '''Creates a dict of each location and its associated ID'''
+    """Creates a dict of each location and its associated ID"""
     conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
     cursor = conn.cursor()
     cursor.execute(f"SELECT location_id, location_lat, location_lon FROM {
