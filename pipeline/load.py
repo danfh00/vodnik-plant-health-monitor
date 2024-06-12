@@ -31,50 +31,19 @@ def botanist_exists(schema: str, botanist_id: int) -> bool:
     return cursor.fetchone()[0] > 0
 
 
-def add_botanist(schema: str, data: dict) -> None:
-    """Adds a new botanist to the botanists table"""
-    conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
-    cursor = conn.cursor()
-
-    botanist = (
-        data['first_name'],
-        data['last_name'],
-        data['email'],
-        data['phone_number']
-    )
-
-    try:
-        cursor.execute(
-            f"""INSERT INTO {schema}.botanists (first_name, last_name, email, phone_number)
-            VALUES (%s, %s, %s, %s)""", botanist)
-        conn.commit()
-    except Exception as e:
-        print(f"Error: {e}")
-        conn.rollback()
-    finally:
-        cursor.close()
-        conn.close()
-
-
-def get_botanist_id(schema: str, email: str) -> int:
-    """Retrieves the botanist_id for a botanist given their email"""
-    conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute(f"""SELECT botanists_id FROM {schema}.botanists
-                   WHERE email = %s""", (email,))
-    return cursor.fetchone()[0]
-
-
 def populate_botanists(botanists_df: pd.DataFrame, schema: str) -> None:
-    """Populates the botanists table"""
-    conn = create_connection(DB_HOST, DB_USERNAME,
-                             DB_PASSWORD, DB_NAME)
+    """Populates the botanists table if botanist_id is not already present."""
+    conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
     cursor = conn.cursor()
 
     try:
-        cursor.executemany(
-            f"""INSERT INTO {schema}.botanists (first_name, last_name, email, phone_number)
-            VALUES (%s, %s, %s, %s)""", botanists_df.apply(tuple, axis=1).tolist())
+        for _, row in botanists_df.iterrows():
+            botanist_id = row['botanist_id']
+
+            if not botanist_exists(schema, botanist_id):
+                cursor.execute(
+                    f"""INSERT INTO {schema}.botanists (first_name, last_name, email, phone_number)
+                    VALUES (%s, %s, %s, %s)""", botanists_df.apply(tuple, axis=1).tolist())
         conn.commit()
     except Exception as e:
         print(f"Error: {e}")
@@ -105,28 +74,22 @@ def populate_readings(readings_df: pd.DataFrame, schema: str) -> None:
 
 if __name__ == "__main__":
 
-    botanist_data = pd.DataFrame([{
+    botanist_sample_data = pd.DataFrame([{
+        'botanist_id': 4,
         'first_name': ['Eliza'],
         'last_name': ['Andrews'],
         'email': ['eliza.andrews@lnhm.co.uk'],
         'phone_number': ['(846)669-6651x75948'],
     },
         {
+        'botanist_id': 4,
         'first_name': ['Eliza'],
         'last_name': ['Andrews'],
         'email': ['eliza.andrews@lnhm.co.uk'],
         'phone_number': ['(846)669-6651x75948'],
     }])
 
-    # location_data = pd.DataFrame({
-    #     location_id SMALLINT IDENTITY(1, 1) PRIMARY KEY,
-    #     location_name VARCHAR(50) NOT NULL,
-    #     location_lat DECIMAL(10, 7) NOT NULL,
-    #     location_lon DECIMAL(10, 7) NOT NULL,
-    #     timezone_id SMALLINT NOT NULL,
-    #     country_code_id SMALLINT NOT NULL, })
-
-    reading_data = pd.DataFrame([{
+    reading_sample_data = pd.DataFrame([{
         "plant_id": 1,
         "botanist_id": 2,
         "reading_at": "2024-06-12 11:17:55",
@@ -142,6 +105,6 @@ if __name__ == "__main__":
         "temp": 10.588249721728,
         "watered_at": "2024-06-11 14:12:43"}])
 
-    populate_readings(reading_data, DB_SCHEMA)
+    populate_readings(reading_sample_data, DB_SCHEMA)
 
-    populate_botanists(botanist_data, DB_SCHEMA)
+    populate_botanists(botanist_sample_data, DB_SCHEMA)
