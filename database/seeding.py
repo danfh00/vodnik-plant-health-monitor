@@ -27,7 +27,7 @@ def create_connection(host: str, username: str, password: str, database_name: st
 async def fetch_plant_data(session, plant_id: int) -> dict:
     "Creates all requests and fetches all of them concurrently"
     try:
-        async with session.get(f"https://data-eng-plants-api.herokuapp.com/plants/{plant_id}", timeout=20) as response:
+        async with session.get(f"https://data-eng-plants-api.herokuapp.com/plants/{plant_id}") as response:
             return await response.json()
     except TimeoutError:
         return {"error": "Unable to connect to the API."}
@@ -86,24 +86,39 @@ def get_unique_locations(responses: list[str], timezone_map: dict, country_code_
     return list(unique_locations)
 
 
-def get_unique_plants(responses: list[str], locations_map: dict) -> list[tuple]:
-    """Finds all the unique plants"""
-    unique_plants = set()
+def get_unique_plant_names(responses: list[str]) -> list[tuple]:
+    """Finds all the unique plant names"""
+    unique_plant_names = set()
     for response in responses:
         if 'error' not in response:
             name = response.get('name')
             scientific_name = response.get('scientific_name')
-            location_data = response.get('origin_location')
 
-            lat_and_lon_tuple = (
-                float(location_data[0]), float(location_data[1]),)
-            associated_location_id = locations_map.get(lat_and_lon_tuple)
+            if name:
+                unique_plant_names.add(
+                    (name.lower(), scientific_name[0].lower() if scientific_name else None),)
 
-            if associated_location_id:
-                unique_plants.add(
-                    (scientific_name[0] if scientific_name else scientific_name, name, associated_location_id),)
+    return list(unique_plant_names)
 
-    return list(unique_plants)
+
+# def get_unique_plants(responses: list[str], locations_map: dict) -> list[tuple]:
+#     """Finds all the unique plants"""
+#     unique_plants = set()
+#     for response in responses:
+#         if 'error' not in response:
+#             name = response.get('name')
+#             scientific_name = response.get('scientific_name')
+#             location_data = response.get('origin_location')
+
+#             lat_and_lon_tuple = (
+#                 float(location_data[0]), float(location_data[1]),)
+#             associated_location_id = locations_map.get(lat_and_lon_tuple)
+
+#             if associated_location_id:
+#                 unique_plants.add(
+#                     (scientific_name[0] if scientific_name else scientific_name, name, associated_location_id),)
+
+#     return list(unique_plants)
 
 
 def populate_timezones(timezone_name: list[tuple], schema: str) -> None:
@@ -142,15 +157,75 @@ def populate_country_codes(country_codes: list[tuple], schema: str) -> None:
         conn.close()
 
 
-def populate_plants(plant_data: list[tuple], schema: str) -> None:
-    """Populates the timezones table"""
+def populate_locations(all_locations: list[tuple], schema: str) -> None:
+    """Populates the locations table"""
+    conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
+    cursor = conn.cursor()
+
+    try:
+        cursor.executemany(
+            f"INSERT INTO {schema}.locations (location_name, location_lat, location_lon, timezone_id, country_code_id) VALUES (%s, %s, %s, %s, %s)", all_locations)
+        conn.commit()
+    except Exception as e:
+        print(f"Error: {e}")
+        conn.rollback()
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def populate_plant_species(all_plant_names: list[tuple], schema: str) -> None:
+    "Populates the plan_names table with the provided names"
+    conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
+    cursor = conn.cursor()
+
+    try:
+        cursor.executemany(
+            f"INSERT INTO {schema}.plant_species (common_name, scientific_name) VALUES (%s, %s)", all_plant_names)
+        conn.commit()
+    except Exception as e:
+        print(f"Error: {e}")
+        conn.rollback()
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def combine_plant_and_location_id(request_data: list[dict], plant_name_ids: dict, location_ids: dict) -> None:
+    "For each plant it find its associated ID for each name and location"
+    full_data_for_plants = set()
+    for plant in request_data:
+        if 'error' not in plant:
+            name = plant.get('name')
+            scientific_name = plant.get('scientific_name')
+            combined_names = (
+                name.lower(), scientific_name[0].lower() if scientific_name else None)
+            associated_name_id = plant_name_ids.get(combined_names)
+
+            location_data = plant.get('origin_location')
+            lat_and_lon_tuple = (
+                float(location_data[0]), float(location_data[1]),)
+            associated_location_id = location_ids.get(lat_and_lon_tuple)
+
+            print(combined_names, lat_and_lon_tuple)
+            print(associated_name_id, associated_location_id)
+
+            if associated_location_id and associated_name_id:
+                full_data_for_plants.add(
+                    (associated_name_id, associated_location_id),)
+
+    return list(full_data_for_plants)
+
+
+def populate_plants(plant_names_data: list[tuple], schema: str) -> None:
+    """Populates the plants table"""
     conn = create_connection(DB_HOST, DB_USERNAME,
                              DB_PASSWORD, DB_NAME)
     cursor = conn.cursor()
 
     try:
         cursor.executemany(
-            f"INSERT INTO {schema}.plants (scientific_name, common_name, location_id) VALUES (%s, %s, %s)", plant_data)
+            f"INSERT INTO {schema}.plants (naming_id, location_id) VALUES (%s, %s)", plant_names_data)
         conn.commit()
     except Exception as e:
         print(f"Error: {e}")
@@ -192,42 +267,44 @@ def get_locations_id_map(schema: str) -> dict:
     rows = cursor.fetchall()
     cursor.close()
     conn.close()
-    return {(float(row[1]), float(row[2]),): row[0] for row in rows}
+    return {(float(row[1]), float(row[2])): row[0] for row in rows}
 
 
-def populate_locations(all_locations: list[tuple], schema: str) -> None:
-    """Populates the locations table"""
+def get_plant_names_id_map(schema: str) -> dict:
+    """Creates a dict of each plant name and its associated ID"""
     conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
     cursor = conn.cursor()
-
-    try:
-        cursor.executemany(
-            f"INSERT INTO {schema}.locations (location_name, location_lat, location_lon, timezone_id, country_code_id) VALUES (%s, %s, %s, %s, %s)", all_locations)
-        conn.commit()
-    except Exception as e:
-        print(f"Error: {e}")
-        conn.rollback()
-    finally:
-        cursor.close()
-        conn.close()
+    cursor.execute(f"SELECT species_id, common_name, scientific_name FROM {
+                   schema}.plant_species")
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return {(row[1], row[2]): row[0] for row in rows}
 
 
 if __name__ == '__main__':
     all_plant_ids = range(1, 51)
     all_responses = asyncio.run(get_all_responses(all_plant_ids))
 
-    timezones = get_unique_timezones(all_responses)
-    populate_timezones(timezones, DB_SCHEMA)
+    # timezones = get_unique_timezones(all_responses)
+    # populate_timezones(timezones, DB_SCHEMA)
 
-    all_country_codes = get_unique_country_codes(all_responses)
-    populate_country_codes(all_country_codes, DB_SCHEMA)
+    # all_country_codes = get_unique_country_codes(all_responses)
+    # populate_country_codes(all_country_codes, DB_SCHEMA)
 
-    timezone_data = get_timezone_id_map(DB_SCHEMA)
-    country_code_mapping = get_country_code_id_map(DB_SCHEMA)
-    location_values = get_unique_locations(
-        all_responses, timezone_data, country_code_mapping)
-    populate_locations(location_values, DB_SCHEMA)
+    # timezone_data = get_timezone_id_map(DB_SCHEMA)
+    # country_code_mapping = get_country_code_id_map(DB_SCHEMA)
+    # location_values = get_unique_locations(
+    #     all_responses, timezone_data, country_code_mapping)
+    # populate_locations(location_values, DB_SCHEMA)
 
+    # plant_names = get_unique_plant_names(all_responses)
+    # populate_plant_species(plant_names, DB_SCHEMA)
+
+    plant_names_mapping = get_plant_names_id_map(DB_SCHEMA)
+    print(plant_names_mapping)
     location_mapping = get_locations_id_map(DB_SCHEMA)
-    plant_values = get_unique_plants(all_responses, location_mapping)
-    populate_plants(plant_values, DB_SCHEMA)
+    print(location_mapping)
+    data_to_add_to_plants = combine_plant_and_location_id(
+        all_responses, plant_names_mapping, location_mapping)
+    print(data_to_add_to_plants)

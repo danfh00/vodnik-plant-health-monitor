@@ -1,4 +1,4 @@
-DROP TABLE IF EXISTS gamma.readings, gamma.plants, gamma.locations, gamma.timezones, gamma.botanists, gamma.country_codes;
+DROP TABLE IF EXISTS gamma.readings, gamma.plants, gamma.locations, gamma.timezones, gamma.botanists, gamma.country_codes, gamma.plant_species;
 GO
 
 CREATE TABLE gamma.timezones(
@@ -25,15 +25,15 @@ CREATE TABLE gamma.locations(
 );
 GO
 
-CREATE TABLE gamma.plant_names(
-    naming_id SMALLINT IDENTITY(1, 1) PRIMARY KEY,
-    scientific_name VARCHAR(100),
-    common_name VARCHAR(100) UNIQUE NOT NULL
+CREATE TABLE gamma.plant_species(
+    species_id SMALLINT IDENTITY(1, 1) PRIMARY KEY,
+    common_name VARCHAR(100) UNIQUE NOT NULL,
+    scientific_name VARCHAR(100)
 );
 GO
 
-CREATE UNIQUE INDEX IX_plant_names
-ON gamma.plant_names(scientific_name)
+CREATE UNIQUE INDEX IX_plant_species
+ON gamma.plant_species(scientific_name)
 WHERE scientific_name IS NOT NULL;
 
 
@@ -41,7 +41,7 @@ CREATE TABLE gamma.plants(
     plant_id SMALLINT IDENTITY(1,1) PRIMARY KEY,
     naming_id SMALLINT NOT NULL,
     location_id SMALLINT NOT NULL,
-    FOREIGN KEY (naming_id) REFERENCES gamma.plant_names(naming_id),
+    FOREIGN KEY (naming_id) REFERENCES gamma.plant_species(species_id),
     FOREIGN KEY (location_id) REFERENCES gamma.locations(location_id)   
 );
 GO
