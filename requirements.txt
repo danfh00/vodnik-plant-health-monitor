@@ -4,3 +4,4 @@ pymssql
 python-dotenv
 asyncio
 aiohttp
+pandas
