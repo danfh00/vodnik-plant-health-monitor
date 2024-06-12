@@ -25,32 +25,26 @@ CREATE TABLE gamma.locations(
 );
 GO
 
-CREATE TABLE gamma.scientific_plant_names(
-    scientific_plant_name_id SMALLINT IDENTITY(1, 1) PRIMARY KEY,
-    scientific_name VARCHAR(100) UNIQUE NOT NULL
-);
-GO
-
-CREATE TABLE gamma.common_plant_names(
-    common_plant_name_id SMALLINT IDENTITY(1, 1) PRIMARY KEY,
+CREATE TABLE gamma.plant_names(
+    naming_id SMALLINT IDENTITY(1, 1) PRIMARY KEY,
+    scientific_name VARCHAR(100),
     common_name VARCHAR(100) UNIQUE NOT NULL
 );
 GO
 
+CREATE UNIQUE INDEX IX_plant_names
+ON gamma.plant_names(scientific_name)
+WHERE scientific_name IS NOT NULL;
+
+
 CREATE TABLE gamma.plants(
     plant_id SMALLINT IDENTITY(1,1) PRIMARY KEY,
-    scientific_name_id VARCHAR(100),
-    common_name_id SMALLINT NOT NULL,
+    naming_id SMALLINT NOT NULL,
     location_id SMALLINT NOT NULL,
-    FOREIGN KEY (scientific_name_id) REFERENCES gamma.scientific_plant_names(scientific_plant_name_id),
-    FOREIGN KEY (common_name_id) REFERENCES gamma.common_plant_names(common_plant_name_id),
+    FOREIGN KEY (naming_id) REFERENCES gamma.plant_names(naming_id),
     FOREIGN KEY (location_id) REFERENCES gamma.locations(location_id)   
 );
 GO
-
-CREATE UNIQUE INDEX IX_plants_scientific_name
-ON gamma.plants(scientific_name)
-WHERE scientific_name IS NOT NULL;
 
 CREATE TABLE gamma.botanists(
     botanists_id SMALLINT IDENTITY(1,1) PRIMARY KEY,
