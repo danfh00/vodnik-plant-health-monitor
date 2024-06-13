@@ -64,7 +64,7 @@ def transform(plants: list[dict]) -> tuple:
     botanists = plants_df[['first_name', 'last_name', 'phone_number', 'email']]
     plants = plants_df[['plant_id', 'common_name', 'scientific_name']]
     readings = plants_df[['plant_id', 'reading_at', 'moisture',
-                         'temperature', 'watered_at']]
+                         'temperature', 'watered_at', 'email']]
     locations = plants_df[['location_name', 'location_lat',
                           'location_lon', 'country_code', 'timezone']]
 
