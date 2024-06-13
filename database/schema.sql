@@ -39,9 +39,9 @@ WHERE scientific_name IS NOT NULL;
 
 CREATE TABLE gamma.plants(
     plant_id SMALLINT PRIMARY KEY,
-    naming_id SMALLINT NOT NULL,
+    species_id SMALLINT NOT NULL,
     location_id SMALLINT NOT NULL,
-    FOREIGN KEY (naming_id) REFERENCES gamma.plant_species(species_id),
+    FOREIGN KEY (species_id) REFERENCES gamma.plant_species(species_id),
     FOREIGN KEY (location_id) REFERENCES gamma.locations(location_id)   
 );
 GO

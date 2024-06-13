@@ -218,7 +218,7 @@ def populate_plants(plants_data: list[tuple], schema: str) -> None:
 
     try:
         cursor.executemany(
-            f"INSERT INTO {schema}.plants (plant_id, naming_id, location_id) VALUES (%s, %s, %s)", plants_data)
+            f"INSERT INTO {schema}.plants (plant_id, species_id, location_id) VALUES (%s, %s, %s)", plants_data)
         conn.commit()
     except Exception as e:
         print(f"Error: {e}")
