@@ -40,48 +40,18 @@ def fetch_botanists_data() -> pd.DataFrame:
     return pd.DataFrame(botanists_data, columns=['botanist_id', 'email'])
 
 
-def add_botanist():
-    ...
-
-
-def get_botanist_id(botanist_email):
-    if not botanist_exists():
-        add_botanist()
-
-
 def insert_new_botanists(new_botanists_df: pd.DataFrame) -> None:
     """Inserts new botanists into the database"""
     conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
     cursor = conn.cursor()
-    new_botanists_data = new_botanists_df[[
-        'first_name', 'last_name', 'phone_number', 'email']].drop_duplicates()
+    new_botanists_df = new_botanists_df[[
+        'first_name', 'last_name', 'phone_number', 'email']].dropna().drop_duplicates()
+    print(new_botanists_df)
     cursor.executemany(
         """INSERT INTO gamma.botanists (first_name, last_name, phone_number, email)
-        VALUES (%s, %s, %s, %s)""", new_botanists_data.apply(tuple, axis=1).tolist())
+        VALUES (%s, %s, %s, %s)""", new_botanists_df.apply(tuple, axis=1).tolist())
     cursor.close()
     conn.close()
-
-
-def populate_botanists(botanists_df: pd.Series, schema: str) -> None:
-    """Populates the botanists table if botanist_id is not already present."""
-    conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
-    cursor = conn.cursor()
-
-    try:
-        for _, row in botanists_df.iterrows():
-            botanist_id = row['botanists_id']
-
-            if not botanist_exists(schema, botanist_id):
-                cursor.execute(
-                    f"""INSERT INTO {schema}.botanists (first_name, last_name, phone_number, email)
-                    VALUES (%s, %s, %s, %s)""", botanists_df.apply(tuple, axis=1).tolist())
-        conn.commit()
-    except Exception as e:
-        print(f"Error: {e}")
-        conn.rollback()
-    finally:
-        cursor.close()
-        conn.close()
 
 
 def plant_exists(schema: str, plant_id: int) -> bool:
@@ -116,6 +86,28 @@ def populate_plants(plants_df: pd.DataFrame, schema: str) -> None:
         conn.close()
 
 
+def check_for_new_plants():
+    ...
+
+
+def check_for_new_botanist(readings_df: pd.DataFrame, botanists: pd.DataFrame):
+    "Checks if there are any new botanists in the dataframe and not in the database, adding any new ones"
+    botanists_id_df = fetch_botanists_data()
+
+    new_botanists_df = pd.merge(readings_df[['email']].drop_duplicates(
+    ), botanists_id_df, on='email', how='left', indicator=True)
+
+    new_botanists_df = new_botanists_df[new_botanists_df['_merge'] == 'left_only'].drop(columns=[
+                                                                                        '_merge'])
+
+    new_botanists_df = pd.merge(
+        new_botanists_df, botanists, on='email', how='left')
+    print(new_botanists_df)
+
+    if not new_botanists_df.empty:
+        insert_new_botanists(new_botanists_df)
+
+
 def populate_readings(readings_df: pd.DataFrame, botanists: pd.DataFrame, schema: str) -> None:
     """Populates the readings table"""
     conn = create_connection(DB_HOST, DB_USERNAME,
@@ -123,21 +115,7 @@ def populate_readings(readings_df: pd.DataFrame, botanists: pd.DataFrame, schema
     cursor = conn.cursor()
 
     try:
-        botanists_id_df = fetch_botanists_data()
-
-        new_botanists_df = pd.merge(readings_df[['email']].drop_duplicates(
-        ), botanists_id_df, on='email', how='left', indicator=True)
-
-        print(new_botanists_df)
-        new_botanists_df = new_botanists_df[new_botanists_df['_merge'] == 'left_only'].drop(columns=[
-                                                                                            '_merge'])
-
-        new_botanists_df = pd.merge(
-            new_botanists_df, botanists, on='email', how='left')
-        print(new_botanists_df)
-
-        if not new_botanists_df.empty:
-            insert_new_botanists(new_botanists_df)
+        # check_for_new_botanist(readings_df, botanists)
 
         botanists_id_df = fetch_botanists_data()
 
@@ -146,8 +124,6 @@ def populate_readings(readings_df: pd.DataFrame, botanists: pd.DataFrame, schema
         merged_df = merged_df.rename(columns={'temperature': 'temp'})
         readings_data = merged_df[['plant_id', 'reading_at', 'moisture', 'temp', 'botanist_id',
                                    'watered_at']]
-
-        # print(readings_data)
 
         cursor.executemany(
             f"""INSERT INTO {schema}.readings (plant_id, reading_at, moisture, temp, botanist_id, watered_at)
@@ -165,13 +141,7 @@ def load(data):
 
     botanists, plants, readings, locations = data
 
-    # populate_plants(plants, DB_SCHEMA)
-
-    # populate_botanists(botanists, DB_SCHEMA)
-
     populate_readings(readings, botanists, DB_SCHEMA)
-
-    # print(readings)
 
 
 if __name__ == "__main__":
