@@ -4,6 +4,7 @@ import pymssql
 from dotenv import load_dotenv
 import pandas as pd
 import streamlit as st
+from boto3 import client
 
 
 def create_connection() -> pymssql.Connection:
@@ -12,6 +13,37 @@ def create_connection() -> pymssql.Connection:
                            user=os.getenv('DB_USER'),
                            password=os.getenv('DB_PASSWORD'),
                            database=os.getenv('DB_NAME'))
+
+
+def get_aws_client() -> client:
+    "Returns an s3 client"
+    return client('s3',
+                  aws_access_key_id=os.get("ACCESS_KEY"),
+                  aws_secret_access_key=os.get("SECRET_ACCESS_KEY")
+                  )
+
+
+def get_bucket(s3: client, bucket_name: str):
+    """ Returns the bucket contents """
+    return s3.list_objects(Bucket=bucket_name)
+
+
+def get_latest_file(files: list) -> str:
+    """ Filters for last modified sjogren files """
+    max_modified = max([file['LastModified'] for file in files])
+    latest = [file for file in files if file['LastModified'] == max_modified]
+    return latest[0]
+
+
+def get_historical_data():
+    client = get_aws_client()
+    csv_files = get_bucket(client, "vodnik-historical-plant-readings")
+    latest_file = get_latest_file(csv_files)
+    client.download_file(
+        "vodnik-historical-plant-readings", latest_file['Key'], "historical_data.csv")
+    # Read csv into a dataframe
+    df = pd.read_csv("historical_data")
+    return df
 
 
 def get_locations_data(conn: pymssql.Connection) -> pd.DataFrame:
@@ -42,9 +74,12 @@ def get_moisture_chart_single_plant(data: pd.DataFrame, plant_choice: str) -> al
 
     moisture_data = data[data["common_name"] == plant_choice]
     chart = alt.Chart(moisture_data).mark_line().encode(
-        x=alt.X('reading_at:T', axis=alt.Axis(title='Time (Hour)')),
+        x=alt.X('reading_at:T', axis=alt.Axis(title='Time')),
         y=alt.Y('moisture:Q', scale=alt.Scale(
             domain=[y_min, y_max]), axis=alt.Axis(title='Moisture'))
+    ).properties(
+        width=700,
+        height=600,
     ).interactive()
 
     return chart
@@ -59,13 +94,32 @@ def get_temperature_chart_single_plant(data: pd.DataFrame, plant_choice) -> alt.
         x=alt.X('reading_at:T', axis=alt.Axis(title='Time')),
         y=alt.Y('temp:Q', scale=alt.Scale(
             domain=[y_min, y_max]), axis=alt.Axis(title='Temperature'))
+    ).properties(
+        width=700,
+        height=600,
     ).interactive()
 
     return chart
 
 
-def get_plant_names(df: pd.DataFrame) -> list[str]:
-    return df['common_name'].unique().tolist()
+def get_latest_moisture_chart(latest_data: pd.DataFrame) -> alt.Chart:
+    return alt.Chart(latest_data).mark_bar().encode(
+        y=alt.Y('common_name:N', title='Plant name'),
+        x=alt.X('moisture:Q', title='Soil Moisture')
+    ).properties(
+        width=700,
+        height=600,
+    ).interactive()
+
+
+def get_latest_temperature_chart(latest_data: pd.DataFrame) -> alt.Chart:
+    return alt.Chart(latest_data).mark_bar().encode(
+        y=alt.Y('common_name:N', sort='-x', title='Plant name'),
+        x=alt.X('temp:Q', title='Temperature')
+    ).properties(
+        width=700,
+        height=600,
+    ).interactive()
 
 
 def build_dashboard():
@@ -74,14 +128,14 @@ def build_dashboard():
     locations_df = get_locations_data(conn)
     readings_df = get_readings_data(conn)
 
-    st.title("LNMH Plant Health Dashboard")
+    st.title("LNMH Plant Health Dashboard🍀")
 
     tab_location, tab_latest, tab_historical = st.tabs(
         ["Location", "Latest Analysis", "Historical Analysis"])
 
     with tab_historical:
-        # Uses data from the s3 bucket
-        plant_names = get_plant_names(readings_df)
+        # Uses data from the s3 bucket. Currently using data from database
+        plant_names = readings_df['common_name'].unique().tolist()
         plant_option = st.selectbox("Choose a plant", plant_names)
 
         st.header('🌡️ Temperature Readings 🌡️')
@@ -101,7 +155,11 @@ def build_dashboard():
 
     with tab_latest:
         # Pulls from the database
-        ...
+        st.header('Latest Moisture Readings 💧 ')
+        st.write(get_latest_moisture_chart(readings_df))
+
+        st.header('Latest Temperature Readings 🌡️')
+        st.write(get_latest_temperature_chart(readings_df))
 
 
 if __name__ == '__main__':
