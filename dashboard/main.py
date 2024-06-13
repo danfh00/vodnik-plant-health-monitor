@@ -35,7 +35,7 @@ def get_readings_data(conn: pymssql.Connection) -> pd.DataFrame:
     return df
 
 
-def get_moisture_chart(data: pd.DataFrame, plant_choice: str) -> alt.Chart:
+def get_moisture_chart_single_plant(data: pd.DataFrame, plant_choice: str) -> alt.Chart:
     y_min = data['moisture'].min()
     y_max = data['moisture'].max()
     data['reading_at'] = pd.to_datetime(data['reading_at'])
@@ -50,7 +50,7 @@ def get_moisture_chart(data: pd.DataFrame, plant_choice: str) -> alt.Chart:
     return chart
 
 
-def get_temperature_chart(data: pd.DataFrame, plant_choice) -> alt.Chart:
+def get_temperature_chart_single_plant(data: pd.DataFrame, plant_choice) -> alt.Chart:
     y_min = data['temp'].min()
     y_max = data['temp'].max()
 
@@ -76,24 +76,32 @@ def build_dashboard():
 
     st.title("LNMH Plant Health Dashboard")
 
-    # Sidebar:
-    st.sidebar.title('Select a Plant')
+    tab_location, tab_latest, tab_historical = st.tabs(
+        ["Location", "Latest Analysis", "Historical Analysis"])
 
-    plant_names = get_plant_names(readings_df)
-    plant_option = st.sidebar.selectbox("Choose a plant", plant_names)
-    selected_plant = plant_option
+    with tab_historical:
+        # Uses data from the s3 bucket
+        plant_names = get_plant_names(readings_df)
+        plant_option = st.selectbox("Choose a plant", plant_names)
 
-    st.header('🌡️ Temperature Readings 🌡️')
-    st.write(get_temperature_chart(readings_df, plant_choice=plant_option))
+        st.header('🌡️ Temperature Readings 🌡️')
+        st.write(get_temperature_chart_single_plant(
+            readings_df, plant_choice=plant_option))
 
-    st.header('💧 Soil Moisture Readings 💧')
+        st.header('💧 Soil Moisture Readings 💧')
 
-    st.write(get_moisture_chart(readings_df, plant_choice=plant_option))
+        st.write(get_moisture_chart_single_plant(
+            readings_df, plant_choice=plant_option))
 
-    # Location Map
-    st.header('🌍 Origin Locations 🌍')
-    st.map(data=locations_df, latitude="location_lat",
-           longitude="location_lon", size=1000, zoom=2)
+    with tab_location:
+        # Location Map
+        st.header('🌍 Origin Locations 🌍')
+        st.map(data=locations_df, latitude="location_lat",
+               longitude="location_lon", size=1000, zoom=2)
+
+    with tab_latest:
+        # Pulls from the database
+        ...
 
 
 if __name__ == '__main__':
