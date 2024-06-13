@@ -3,7 +3,6 @@
 from datetime import datetime
 import os
 import re
-from extract import extract_data
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -21,7 +20,7 @@ INDEX_OF_TIMEZONE = 4
 ORIGIN_LOCATION = "origin_location"
 NAME = "name"
 SCIENTIFIC_NAME = "scientific_name"
-PHONE = "PHONE"
+PHONE = "phone"
 ERROR = "error"
 PLANT_ID = "plant_id"
 EMAIL = "email"
@@ -72,10 +71,14 @@ def apply_transformations(all_plant_data: dict) -> dict:
                 country_code = plant[ORIGIN_LOCATION][INDEX_OF_CC]
                 timezone = plant[ORIGIN_LOCATION][INDEX_OF_TIMEZONE]
 
+                botanist_phone = format_phone_number(plant[BOTANIST][PHONE])
+                botanist_email = plant[BOTANIST][EMAIL]
+                botanist_name = plant[BOTANIST][NAME]
+
                 formatted_data.append({"plant_id": current_plant_id, "name": plant_name, "scientific_name": plant_scientific_name,
                                        "last_watered": plant_watered_at, "temperature": current_temp, "soil_moisture": current_moisture,
                                        "reading_at": plant_reading_at, "origin_location": [lat, lon, city_name, country_code, timezone],
-                                       "botanist": plant[BOTANIST]})
+                                       "botanist": {"name": botanist_name, "email": botanist_email, "phone": botanist_phone}})
             except (KeyError, IndexError):
                 print("Missing data, skipping this plant")
                 continue
