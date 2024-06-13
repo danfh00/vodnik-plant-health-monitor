@@ -37,3 +37,7 @@ variable "DB_SCHEMA" {
     type = string
 }
 
+variable "STORAGE_BUCKET_NAME" {
+    type = string
+}
+
