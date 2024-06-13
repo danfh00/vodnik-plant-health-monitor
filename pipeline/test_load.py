@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from load import check_if_botanist_in_db
+from load import check_if_botanist_in_db, add_botanist_to_db
 
 
 @pytest.fixture
@@ -41,3 +41,23 @@ def test_check_if_botanist_in_db_not_found(mock_cursor):
         f"""SELECT botanists_id FROM {test_schema}.botanists WHERE email=%s""", (test_email,))
 
     mock_cursor.fetchone.assert_called_once()
+
+
+def test_add_botanist_to_db(mock_create_connection, mock_cursor):
+    botanist_data = {
+        'name': 'John Doe',
+        'email': 'john.doe@example.com',
+        'phone': '123-456-7890'
+    }
+    schema = 'test_schema'
+
+    add_botanist_to_db(botanist_data, schema,
+                       mock_create_connection, mock_cursor)
+
+    mock_cursor.execute.assert_called_once_with(
+        f"INSERT INTO {
+            schema}.botanists (first_name, last_name, email, phone_number) VALUES (%s, %s, %s, %s)",
+        ('John', 'Doe', 'john.doe@example.com', '123-456-7890')
+    )
+
+    mock_create_connection.commit.assert_called_once()

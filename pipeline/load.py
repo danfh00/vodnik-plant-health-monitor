@@ -50,7 +50,7 @@ def check_if_botanist_in_db(email: str, schema: str, cursor: pymssql.Cursor) -> 
 def add_botanist_to_db(botanist_data: dict, schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
     """Adds the botanist to the 'botanists' table"""
     first_name, last_name = tuple(botanist_data[NAME].split())
-    phone_number = format_phone_number(botanist_data[PHONE])
+    phone_number = botanist_data[PHONE]
     email = botanist_data[EMAIL]
 
     try:
