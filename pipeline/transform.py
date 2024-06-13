@@ -1,11 +1,11 @@
 "This file cleans and processes plant data into a DataFrame "
+# pylint: disable=C0301, E1101
+from datetime import datetime
 import os
-import pandas as pd
 import re
 import pymssql
 from extract import extract_data
 from dotenv import load_dotenv
-from datetime import datetime
 
 load_dotenv()
 
@@ -14,6 +14,23 @@ DB_USERNAME = os.getenv('DB_USER')
 DB_PASSWORD = os.getenv('DB_PASSWORD')
 DB_NAME = os.getenv('DB_NAME')
 DB_SCHEMA = os.getenv('DB_SCHEMA')
+INDEX_OF_LAT = 0
+INDEX_OF_LON = 1
+INDEX_OF_NAME = 2
+INDEX_OF_CC = 3
+INDEX_OF_TIMEZONE = 4
+ORIGIN_LOCATION = "origin_location"
+NAME = "name"
+SCIENTIFIC_NAME = "scientific_name"
+PHONE = "PHONE"
+ERROR = "error"
+PLANT_ID = "plant_id"
+EMAIL = "email"
+BOTANIST = "botanist"
+LAST_WATERED = "last_watered"
+TEMPERATURE = "temperature"
+SOIL_MOISTURE = "soil_moisture"
+RECORDING_TAKEN = "recording_taken"
 
 
 def format_phone_number(number: str) -> str:
@@ -29,7 +46,8 @@ def create_connection(host: str, username: str, password: str, database_name: st
                            database=database_name)
 
 
-def check_if_botanist_in_db(email: str, schema: str, cursor: pymssql.Cursor) -> bool:
+def check_if_botanist_in_db(email: str, schema: str, cursor: pymssql.Cursor) -> tuple:
+    """Checks if there is a botanist that has the provided email"""
     cursor.execute(
         f"""SELECT botanists_id FROM {schema}.botanists WHERE email=%s""", (email,))
 
@@ -39,14 +57,15 @@ def check_if_botanist_in_db(email: str, schema: str, cursor: pymssql.Cursor) -> 
 
 
 def add_botanist_to_db(botanist_data: dict, schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
-    first_name, last_name = tuple(botanist_data["name"].split())
-    phone_number = format_phone_number(botanist_data["phone"])
-    email = botanist_data["email"]
+    """Adds the botanist to the 'botanists' table"""
+    first_name, last_name = tuple(botanist_data[NAME].split())
+    phone_number = format_phone_number(botanist_data[PHONE])
+    email = botanist_data[EMAIL]
 
     try:
         cursor.execute(f"""INSERT INTO {
             schema}.botanists (first_name, last_name, email, phone_number) VALUES (%s, %s, %s, %s)""",
-            (first_name, last_name, email, phone_number, ))
+            (first_name, last_name, email, phone_number,))
 
         conn.commit()
     except Exception as e:
@@ -54,7 +73,8 @@ def add_botanist_to_db(botanist_data: dict, schema: str, conn: pymssql.Connectio
         conn.rollback()
 
 
-def check_if_timezone_in_db(timezone: str, schema: str, cursor: pymssql.Cursor) -> bool:
+def check_if_timezone_in_db(timezone: str, schema: str, cursor: pymssql.Cursor) -> tuple:
+    """Checks if the passed timezone value is in the 'timezones' table"""
     cursor.execute(
         f"""SELECT timezone_id FROM {schema}.timezones WHERE timezone=%s""", (timezone,))
 
@@ -64,17 +84,18 @@ def check_if_timezone_in_db(timezone: str, schema: str, cursor: pymssql.Cursor) 
 
 
 def add_timezone_to_db(timezone_name: dict, schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
-    """Adds the new timezone to the timezones table"""
+    """Adds the new timezone to the 'timezones' table"""
     try:
         cursor.execute(
-            f"""INSERT INTO {schema}.timezones (timezone) VALUES (%s)""", timezone_name)
+            f"""INSERT INTO {schema}.timezones (timezone) VALUES (%s)""", (timezone_name,))
         conn.commit()
     except Exception as e:
         print(f"Error: {e}")
         conn.rollback()
 
 
-def check_if_country_code_in_db(cc: str, schema: str, cursor: pymssql.Cursor) -> bool:
+def check_if_country_code_in_db(cc: str, schema: str, cursor: pymssql.Cursor) -> tuple:
+    """Checks if the passed country code is in the 'country_codes' table"""
     cursor.execute(
         f"""SELECT country_code_id FROM {schema}.country_codes WHERE country_code=%s""", (cc,))
 
@@ -84,19 +105,21 @@ def check_if_country_code_in_db(cc: str, schema: str, cursor: pymssql.Cursor) ->
 
 
 def add_country_code_to_db(cc: str, schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
-    """Adds the new country code to the country_codes table"""
+    """Adds the new country code to the 'country_codes' table"""
     try:
         cursor.execute(
-            f"""INSERT INTO {schema}.country_codes (country_code) VALUES (%s)""", cc)
+            f"""INSERT INTO {schema}.country_codes (country_code) VALUES (%s)""", (cc,))
         conn.commit()
     except Exception as e:
         print(f"Error: {e}")
         conn.rollback()
 
 
-def check_if_location_in_db(city: str, lat: float, lon: float, schema: str, cursor: pymssql.Cursor) -> bool:
+def check_if_location_in_db(city: str, lat: float, lon: float, schema: str, cursor: pymssql.Cursor) -> tuple:
+    """Checks if the passed data is present in the 'locations' table"""
     cursor.execute(
-        f"""SELECT location_id FROM {schema}.locations WHERE location_name=%s AND location_lat=%s AND location_lon=%s""", (city, lat, lon))
+        f"""SELECT location_id FROM {schema}.locations
+            WHERE location_name=%s AND location_lat=%s AND location_lon=%s""", (city, lat, lon,))
 
     result = cursor.fetchone()
 
@@ -104,31 +127,35 @@ def check_if_location_in_db(city: str, lat: float, lon: float, schema: str, curs
 
 
 def add_location_to_db(location_data: tuple, schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
-    """Adds the new location to the locations table"""
-    city = location_data[2]
-    lat = float(location_data[0])
-    lon = float(location_data[1])
-    cc_id = check_if_country_code_in_db(location_data[3], schema, cursor)[0]
-    timezone_id = check_if_timezone_in_db(location_data[4], schema, cursor)[0]
+    """Adds the new location to the 'locations' table"""
+    city = location_data[INDEX_OF_NAME]
+    lat = float(location_data[INDEX_OF_LAT])
+    lon = float(location_data[INDEX_OF_LON])
+    cc_id = check_if_country_code_in_db(
+        location_data[INDEX_OF_CC], schema, cursor)[0]
+    timezone_id = check_if_timezone_in_db(
+        location_data[INDEX_OF_TIMEZONE], schema, cursor)[0]
 
     try:
         cursor.execute(
-            f"""INSERT INTO {
-                schema}.locations (location_name, location_lat, location_lon, timezone_id, country_code_id) VALUES (%s, %s, %s, %s, %s)""",
-            (city, lat, lon, timezone_id, cc_id))
+            f"""INSERT INTO {schema}.locations
+                (location_name, location_lat, location_lon,
+                 timezone_id, country_code_id)
+                VALUES (%s, %s, %s, %s, %s)""", (city, lat, lon, timezone_id, cc_id,))
         conn.commit()
     except Exception as e:
         print(f"Error: {e}")
         conn.rollback()
 
 
-def check_if_species_in_db(common_name: str, scientific_name: str, schema: str, cursor: pymssql.Cursor) -> bool:
+def check_if_species_in_db(common_name: str, scientific_name: str, schema: str, cursor: pymssql.Cursor) -> tuple:
+    """Checks if there exists a species with the given name in the 'plant_species' table"""
     if scientific_name is None:
         cursor.execute(
             f"""SELECT species_id FROM {schema}.plant_species WHERE common_name=%s AND scientific_name IS NULL""", (common_name,))
     else:
         cursor.execute(
-            f"""SELECT species_id FROM {schema}.plant_species WHERE common_name=%s AND scientific_name=%s""", (common_name, scientific_name))
+            f"""SELECT species_id FROM {schema}.plant_species WHERE common_name=%s AND scientific_name=%s""", (common_name, scientific_name,))
 
     result = cursor.fetchone()
 
@@ -136,7 +163,7 @@ def check_if_species_in_db(common_name: str, scientific_name: str, schema: str, 
 
 
 def add_species_to_db(common_name: str, scientific_name: str, schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
-    """Adds the new location to the locations table"""
+    """Adds the provided species to the 'plant_species' table"""
     try:
         cursor.execute(
             f"""INSERT INTO {
@@ -148,7 +175,8 @@ def add_species_to_db(common_name: str, scientific_name: str, schema: str, conn:
         conn.rollback()
 
 
-def check_if_plant_in_db(plant_id: int, schema: str, cursor: pymssql.Cursor) -> bool:
+def check_if_plant_in_db(plant_id: int, schema: str, cursor: pymssql.Cursor) -> tuple:
+    """Checks if there is a plant with the passed plant_id"""
     cursor.execute(f"""SELECT plant_id FROM {
                    schema}.plants WHERE plant_id = %s""", (plant_id,))
 
@@ -158,11 +186,11 @@ def check_if_plant_in_db(plant_id: int, schema: str, cursor: pymssql.Cursor) -> 
 
 
 def add_plant_to_db(plant_id: int, common_name: str, scientific_name: str, location_data: list, schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
-    """Adds the new location to the locations table"""
+    """Adds the plant to the 'plants' table"""
     plant_species_id = check_if_species_in_db(
         common_name, scientific_name, schema, cursor)[0]
-    location_id = check_if_location_in_db(location_data[2], float(
-        location_data[0]), float(location_data[1]), schema, cursor)[0]
+    location_id = check_if_location_in_db(location_data[INDEX_OF_NAME], float(
+        location_data[INDEX_OF_LAT]), float(location_data[INDEX_OF_LON]), schema, cursor)[0]
 
     try:
         cursor.execute(
@@ -173,65 +201,58 @@ def add_plant_to_db(plant_id: int, common_name: str, scientific_name: str, locat
         conn.rollback()
 
 
-def botanist_checks(botanist_data: dict, schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
-    is_botanist_in_db = check_if_botanist_in_db(
-        botanist_data["email"], schema, cursor)
+def botanist_checks(botanist_data: dict, schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> tuple:
+    """The logic for checking if a given botanist exists, and if it doesn't then adding it"""
+    botanist_email = botanist_data[EMAIL]
+    botanist_id = check_if_botanist_in_db(botanist_email, schema, cursor)
 
-    if is_botanist_in_db:
-        return is_botanist_in_db[0]
+    if botanist_id:
+        return botanist_id[0]
 
     add_botanist_to_db(botanist_data, schema, conn, cursor)
-    return check_if_botanist_in_db(
-        botanist_data["email"], schema, cursor)[0]
+    return check_if_botanist_in_db(botanist_email, schema, cursor)[0]
 
 
 def timezone_checks(timezone_name: str, schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
-    is_timezone_in_db = check_if_timezone_in_db(timezone_name, schema, cursor)
-
-    if not is_timezone_in_db:
+    """The logic for checking if a given timezone exists in the database, and if it doesn't then adding it"""
+    if not check_if_timezone_in_db(timezone_name, schema, cursor):
         add_timezone_to_db(timezone_name, schema, conn, cursor)
 
 
 def country_code_checks(cc: str, schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
-    is_country_code_in_db = check_if_country_code_in_db(cc, schema, cursor)
-
-    if not is_country_code_in_db:
+    """The logic for checking if a given country code exists in the database, and if it doesn't then adding it"""
+    if not check_if_country_code_in_db(cc, schema, cursor):
         add_country_code_to_db(cc, schema, conn, cursor)
 
 
 def location_checks(location_data: list, schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
-    is_location_in_db = check_if_location_in_db(
-        location_data[2], location_data[0], location_data[1], schema, cursor)
-
-    if not is_location_in_db:
+    """The logic for checking if a given location exists in the database, and if it doesn't then adding it"""
+    if not check_if_location_in_db(
+            location_data[INDEX_OF_NAME], location_data[INDEX_OF_LAT], location_data[INDEX_OF_LON], schema, cursor):
         add_location_to_db(location_data, schema, conn, cursor)
 
 
 def plant_species_checks(common_name: str, scientific_name: str, schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
-    is_plant_species_in_db = check_if_species_in_db(
-        common_name, scientific_name, schema, cursor)
-
-    if not is_plant_species_in_db:
+    """The logic for checking if a given species exists in the database, and if it doesn't then adding it"""
+    if not check_if_species_in_db(common_name, scientific_name, schema, cursor):
         add_species_to_db(common_name, scientific_name, schema, conn, cursor)
 
 
 def plant_checks(plant_id: int, common_name: str, scientific_name: str, location_data: list, schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
-    is_plant_in_db = check_if_plant_in_db(plant_id, schema, cursor)
-
-    if is_plant_in_db:
-        return is_plant_in_db[0]
-
-    add_plant_to_db(plant_id, common_name,
-                    scientific_name, location_data, schema, conn, cursor)
-    return check_if_plant_in_db(plant_id, schema, cursor)[0]
+    """The logic for checking if a given plant and location combination exists in the database, and if it doesn't then adding it"""
+    if not check_if_plant_in_db(plant_id, schema, cursor):
+        add_plant_to_db(plant_id, common_name,
+                        scientific_name, location_data, schema, conn, cursor)
 
 
 def format_recording_taken(date: str) -> datetime:
+    """Converts a given date for 'record_taken' to datetime and then formats it correctly for storing it in the database"""
     parsed_date = datetime.strptime(date, '%Y-%m-%d %H:%M:%S')
     return parsed_date.strftime('%Y-%m-%d %H:%M:%S')
 
 
 def format_watered_at(date: str) -> datetime:
+    """Converts a given date for 'watered_at' to datetime and then formats it correctly for storing it in the database"""
     parsed_date = datetime.strptime(date, '%a, %d %b %Y %H:%M:%S %Z')
     return parsed_date.strftime('%Y-%m-%d %H:%M:%S')
 
@@ -240,7 +261,8 @@ def add_reading_to_db(plant_id: int, reading_at: str, moisture: float, temp: flo
     """Adds the plant reading to the readings table"""
     try:
         cursor.execute(
-            f"""INSERT INTO {schema}.readings (plant_id, reading_at, moisture, temp, botanist_id, watered_at) VALUES (%s, %s, %s, %s, %s, %s)""", (plant_id, reading_at, moisture, temp, botanist_id, watered_at))
+            f"""INSERT INTO {schema}.readings (plant_id, reading_at, moisture, temp, botanist_id, watered_at)
+                VALUES (%s, %s, %s, %s, %s, %s)""", (plant_id, reading_at, moisture, temp, botanist_id, watered_at))
         conn.commit()
     except Exception as e:
         print(f"Error: {e}")
@@ -249,33 +271,37 @@ def add_reading_to_db(plant_id: int, reading_at: str, moisture: float, temp: flo
 
 if __name__ == '__main__':
     plants = extract_data()
-    conn = create_connection(DB_HOST, DB_USERNAME,
-                             DB_PASSWORD, DB_NAME)
-    cursor = conn.cursor()
+    con = create_connection(DB_HOST, DB_USERNAME,
+                            DB_PASSWORD, DB_NAME)
+    cur = con.cursor()
 
     for plant in plants:
-        if 'error' not in plant:
-            scientific_name = plant.get("scientific_name")
-            botanist_id = botanist_checks(
-                plant["botanist"], DB_SCHEMA, conn, cursor)
-            watered_at = plant.get("last_watered")
-            temp = float(plant.get("temperature"))
-            moisture = float(plant.get("soil_moisture"))
-            reading_at = plant.get("recording_taken")
+        if ERROR not in plant:
+            plant_scientific_name = plant[SCIENTIFIC_NAME][0].lower(
+            ) if SCIENTIFIC_NAME in plant else None
+            plant_name = plant[NAME].lower()
+            current_plant_id = plant[PLANT_ID]
 
-            timezone_checks(plant["origin_location"][4],
-                            DB_SCHEMA, conn, cursor)
+            current_botanist_id = botanist_checks(
+                plant[BOTANIST], DB_SCHEMA, con, cur)
+            plant_watered_at = format_watered_at(plant.get(LAST_WATERED))
+            current_temp = float(plant.get(TEMPERATURE))
+            current_moisture = float(plant.get(SOIL_MOISTURE))
+            plant_reading_at = format_recording_taken(
+                plant.get(RECORDING_TAKEN))
+
+            timezone_checks(plant[ORIGIN_LOCATION]
+                            [INDEX_OF_TIMEZONE], DB_SCHEMA, con, cur)
             country_code_checks(
-                plant["origin_location"][3], DB_SCHEMA, conn, cursor)
-            location_checks(plant["origin_location"], DB_SCHEMA, conn, cursor)
-            plant_species_checks(plant["name"].lower(
-            ), scientific_name[0].lower() if scientific_name else None, DB_SCHEMA, conn, cursor)
+                plant[ORIGIN_LOCATION][INDEX_OF_CC], DB_SCHEMA, con, cur)
+            location_checks(plant[ORIGIN_LOCATION], DB_SCHEMA, con, cur)
+            plant_species_checks(
+                plant_name, plant_scientific_name, DB_SCHEMA, con, cur)
+            plant_checks(current_plant_id, plant_name,
+                         plant_scientific_name, plant[ORIGIN_LOCATION], DB_SCHEMA, con, cur)
 
-            plant_id = plant_checks(plant["plant_id"], plant["name"].lower(),
-                                    scientific_name[0].lower() if scientific_name else None, plant["origin_location"], DB_SCHEMA, conn, cursor)
+            add_reading_to_db(current_plant_id, plant_reading_at, current_moisture,
+                              current_temp, current_botanist_id, plant_watered_at, DB_SCHEMA, con, cur)
 
-            add_reading_to_db(plant["plant_id"],
-                              format_recording_taken(plant["recording_taken"]), plant["soil_moisture"], plant["temperature"], botanist_id, format_watered_at(plant["last_watered"]), DB_SCHEMA, conn, cursor)
-
-    cursor.close()
-    conn.close()
+    cur.close()
+    con.close()
