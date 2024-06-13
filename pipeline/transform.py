@@ -54,23 +54,30 @@ def apply_transformations(all_plant_data: dict) -> dict:
     formatted_data = []
 
     for plant in all_plant_data:
-        plant_scientific_name = plant[SCIENTIFIC_NAME][0].lower(
-        ) if SCIENTIFIC_NAME in plant else None
-        plant_name = plant[NAME].lower()
-        current_plant_id = plant[PLANT_ID]
+        if ERROR not in plant:
+            try:
+                plant_scientific_name = plant[SCIENTIFIC_NAME][0].lower(
+                ) if SCIENTIFIC_NAME in plant else None
+                plant_name = plant[NAME].lower()
+                current_plant_id = plant[PLANT_ID]
 
-        plant_watered_at = format_watered_at(plant[LAST_WATERED])
-        current_temp = float(plant[TEMPERATURE])
-        current_moisture = float(plant[SOIL_MOISTURE])
-        plant_reading_at = format_recording_taken(plant[RECORDING_TAKEN])
-        lat = float(plant[ORIGIN_LOCATION][INDEX_OF_LAT])
-        lon = float(plant[ORIGIN_LOCATION][INDEX_OF_LON])
-        city_name = plant[ORIGIN_LOCATION][INDEX_OF_NAME]
-        country_code = plant[ORIGIN_LOCATION][INDEX_OF_CC]
-        timezone = plant[ORIGIN_LOCATION][INDEX_OF_TIMEZONE]
+                plant_watered_at = format_watered_at(plant[LAST_WATERED])
+                current_temp = float(plant[TEMPERATURE])
+                current_moisture = float(plant[SOIL_MOISTURE])
+                plant_reading_at = format_recording_taken(
+                    plant[RECORDING_TAKEN])
+                lat = float(plant[ORIGIN_LOCATION][INDEX_OF_LAT])
+                lon = float(plant[ORIGIN_LOCATION][INDEX_OF_LON])
+                city_name = plant[ORIGIN_LOCATION][INDEX_OF_NAME]
+                country_code = plant[ORIGIN_LOCATION][INDEX_OF_CC]
+                timezone = plant[ORIGIN_LOCATION][INDEX_OF_TIMEZONE]
 
-        formatted_data.append({"plant_id": current_plant_id, "name": plant_name, "scientific_name": plant_scientific_name,
-                               "last_watered": plant_watered_at, "temperature": current_temp, "moisture": current_moisture,
-                               "reading_at": plant_reading_at, "origin_location": [lat, lon, city_name, country_code, timezone]})
+                formatted_data.append({"plant_id": current_plant_id, "name": plant_name, "scientific_name": plant_scientific_name,
+                                       "last_watered": plant_watered_at, "temperature": current_temp, "soil_moisture": current_moisture,
+                                       "reading_at": plant_reading_at, "origin_location": [lat, lon, city_name, country_code, timezone],
+                                       "botanist": plant[BOTANIST]})
+            except (KeyError, IndexError):
+                print("Missing data, skipping this plant")
+                continue
 
     return formatted_data

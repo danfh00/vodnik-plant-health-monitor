@@ -26,7 +26,7 @@ BOTANIST = "botanist"
 LAST_WATERED = "last_watered"
 TEMPERATURE = "temperature"
 SOIL_MOISTURE = "soil_moisture"
-RECORDING_TAKEN = "recording_taken"
+RECORDING_TAKEN = "reading_at"
 
 
 def create_connection(host: str, username: str, password: str, database_name: str) -> pymssql.Connection:
@@ -248,39 +248,28 @@ def add_reading_to_db(plant_id: int, reading_at: str, moisture: float, temp: flo
         conn.rollback()
 
 
-if __name__ == "__main__":
-    plants = extract_data()
+def apply_load_process(all_plant_data: dict) -> None:
+    """Adds all information into their relevant table in the database"""
     con = create_connection(DB_HOST, DB_USERNAME,
                             DB_PASSWORD, DB_NAME)
     cur = con.cursor()
 
-    for plant in plants:
+    for plant in all_plant_data:
         if ERROR not in plant:
-            plant_scientific_name = plant[SCIENTIFIC_NAME][0].lower(
-            ) if SCIENTIFIC_NAME in plant else None
-            plant_name = plant[NAME].lower()
-            current_plant_id = plant[PLANT_ID]
-
             current_botanist_id = botanist_checks(
                 plant[BOTANIST], DB_SCHEMA, con, cur)
-            plant_watered_at = format_watered_at(plant.get(LAST_WATERED))
-            current_temp = float(plant.get(TEMPERATURE))
-            current_moisture = float(plant.get(SOIL_MOISTURE))
-            plant_reading_at = format_recording_taken(
-                plant.get(RECORDING_TAKEN))
-
             timezone_checks(plant[ORIGIN_LOCATION]
                             [INDEX_OF_TIMEZONE], DB_SCHEMA, con, cur)
             country_code_checks(
                 plant[ORIGIN_LOCATION][INDEX_OF_CC], DB_SCHEMA, con, cur)
             location_checks(plant[ORIGIN_LOCATION], DB_SCHEMA, con, cur)
             plant_species_checks(
-                plant_name, plant_scientific_name, DB_SCHEMA, con, cur)
-            plant_checks(current_plant_id, plant_name,
-                         plant_scientific_name, plant[ORIGIN_LOCATION], DB_SCHEMA, con, cur)
+                plant[NAME], plant[SCIENTIFIC_NAME], DB_SCHEMA, con, cur)
+            plant_checks(plant[PLANT_ID], plant[NAME],
+                         plant[SCIENTIFIC_NAME], plant[ORIGIN_LOCATION], DB_SCHEMA, con, cur)
 
-            add_reading_to_db(current_plant_id, plant_reading_at, current_moisture,
-                              current_temp, current_botanist_id, plant_watered_at, DB_SCHEMA, con, cur)
+            add_reading_to_db(plant[PLANT_ID], plant[RECORDING_TAKEN], plant[SOIL_MOISTURE],
+                              plant[TEMPERATURE], current_botanist_id, plant[LAST_WATERED], DB_SCHEMA, con, cur)
 
     cur.close()
     con.close()
