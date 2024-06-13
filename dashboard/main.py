@@ -35,22 +35,37 @@ def get_readings_data(conn: pymssql.Connection) -> pd.DataFrame:
     return df
 
 
-def get_moisture_chart(data: pd.DataFrame) -> alt.Chart:
-    chart = alt.Chart(data).mark_line().encode(
-        x=alt.X('reading_at:T', axis=alt.Axis(title='Time')),
-        y=alt.Y('moisture:Q',  axis=alt.Axis(title='Moisture'))
+def get_moisture_chart(data: pd.DataFrame, plant_choice: str) -> alt.Chart:
+    y_min = data['moisture'].min()
+    y_max = data['moisture'].max()
+    data['reading_at'] = pd.to_datetime(data['reading_at'])
+
+    moisture_data = data[data["common_name"] == plant_choice]
+    chart = alt.Chart(moisture_data).mark_line().encode(
+        x=alt.X('reading_at:T', axis=alt.Axis(title='Time (Hour)')),
+        y=alt.Y('moisture:Q', scale=alt.Scale(
+            domain=[y_min, y_max]), axis=alt.Axis(title='Moisture'))
     ).interactive()
 
     return chart
 
 
-def get_temperature_chart(data: pd.DataFrame) -> alt.Chart:
-    chart = alt.Chart(data).mark_line().encode(
+def get_temperature_chart(data: pd.DataFrame, plant_choice) -> alt.Chart:
+    y_min = data['temp'].min()
+    y_max = data['temp'].max()
+
+    temp_data = data[data["common_name"] == plant_choice]
+    chart = alt.Chart(temp_data).mark_line().encode(
         x=alt.X('reading_at:T', axis=alt.Axis(title='Time')),
-        y=alt.Y('temp:Q',  axis=alt.Axis(title='Temperature'))
+        y=alt.Y('temp:Q', scale=alt.Scale(
+            domain=[y_min, y_max]), axis=alt.Axis(title='Temperature'))
     ).interactive()
 
     return chart
+
+
+def get_plant_names(df: pd.DataFrame) -> list[str]:
+    return df['common_name'].unique().tolist()
 
 
 def build_dashboard():
@@ -61,10 +76,19 @@ def build_dashboard():
 
     st.title("LNMH Plant Health Dashboard")
 
+    # Sidebar:
+    st.sidebar.title('Select a Plant')
+
+    plant_names = get_plant_names(readings_df)
+    plant_option = st.sidebar.selectbox("Choose a plant", plant_names)
+    selected_plant = plant_option
+
     st.header('🌡️ Temperature Readings 🌡️')
+    st.write(get_temperature_chart(readings_df, plant_choice=plant_option))
 
     st.header('💧 Soil Moisture Readings 💧')
-    st.write(get_moisture_chart(readings_df))
+
+    st.write(get_moisture_chart(readings_df, plant_choice=plant_option))
 
     # Location Map
     st.header('🌍 Origin Locations 🌍')
