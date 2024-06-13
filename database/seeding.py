@@ -190,7 +190,7 @@ def populate_plant_species(all_plant_names: list[tuple], schema: str) -> None:
         conn.close()
 
 
-def combine_plant_and_location_id(request_data: list[dict], plant_name_ids: dict, location_ids: dict) -> None:
+def combine_plant_and_location_id(request_data: list[dict], plant_name_ids: dict, location_ids: dict) -> list[tuple]:
     """For each plant it find its associated ID for each name and location"""
     full_data_for_plants = set()
     for plant in request_data:
