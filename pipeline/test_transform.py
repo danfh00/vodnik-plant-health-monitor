@@ -1,4 +1,3 @@
-import pytest
 from datetime import datetime
 
 from transform import format_phone_number, format_recording_taken, format_watered_at, apply_transformations
