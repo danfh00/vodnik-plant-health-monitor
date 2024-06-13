@@ -2,8 +2,6 @@
 import pandas as pd
 import re
 
-from extract import extract_data
-
 
 def extract_plant_data(plant_data: dict) -> dict:
     """ Extracts all the relevant data from the API for a single plant"""
@@ -57,9 +55,9 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def transform() -> tuple:
+def transform(plants: list[dict]) -> tuple:
     """Transforms plant data into a clean and useable DataFrame """
-    plants = extract_data()
+
     df = create_plants_df(plants)
     plants_df = clean_data(df)
 

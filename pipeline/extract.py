@@ -28,4 +28,4 @@ def extract_data() -> list[dict]:
 
 
 if __name__ == '__main__':
-    print(extract_data())
+    extract_data()
