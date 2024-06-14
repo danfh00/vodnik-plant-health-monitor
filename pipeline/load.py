@@ -1,10 +1,15 @@
 "This file is responsible for loading data into the database"
+# pylint: disable=C0301, E1101
+
 import os
 import pymssql
 from dotenv import load_dotenv
+import boto3
 
 load_dotenv()
 
+ACCESS_KEY = os.getenv('ACCESS_KEY')
+SECRET_ACCESS_KEY = os.getenv('SECRET_ACCESS_KEY')
 DB_HOST = os.getenv('DB_HOST')
 DB_USERNAME = os.getenv('DB_USER')
 DB_PASSWORD = os.getenv('DB_PASSWORD')
@@ -27,6 +32,10 @@ LAST_WATERED = "last_watered"
 TEMPERATURE = "temperature"
 SOIL_MOISTURE = "soil_moisture"
 RECORDING_TAKEN = "reading_at"
+MIN_SOIL_MOISTURE = 21
+MAX_SOIL_MOISTURE = 41
+MIN_TEMP = 7
+MAX_TEMP = 38
 
 
 def create_connection(host: str, username: str, password: str, database_name: str) -> pymssql.Connection:
@@ -120,8 +129,8 @@ def check_if_location_in_db(city: str, lat: float, lon: float, schema: str, curs
 def add_location_to_db(location_data: tuple, schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
     """Adds the new location to the 'locations' table"""
     city = location_data[INDEX_OF_NAME]
-    lat = float(location_data[INDEX_OF_LAT])
-    lon = float(location_data[INDEX_OF_LON])
+    lat = location_data[INDEX_OF_LAT]
+    lon = location_data[INDEX_OF_LON]
     cc_id = check_if_country_code_in_db(
         location_data[INDEX_OF_CC], schema, cursor)[0]
     timezone_id = check_if_timezone_in_db(
@@ -180,8 +189,8 @@ def add_plant_to_db(plant_id: int, common_name: str, scientific_name: str, locat
     """Adds the plant to the 'plants' table"""
     plant_species_id = check_if_species_in_db(
         common_name, scientific_name, schema, cursor)[0]
-    location_id = check_if_location_in_db(location_data[INDEX_OF_NAME], float(
-        location_data[INDEX_OF_LAT]), float(location_data[INDEX_OF_LON]), schema, cursor)[0]
+    location_id = check_if_location_in_db(
+        location_data[INDEX_OF_NAME], location_data[INDEX_OF_LAT], location_data[INDEX_OF_LON], schema, cursor)[0]
 
     try:
         cursor.execute(
@@ -248,11 +257,59 @@ def add_reading_to_db(plant_id: int, reading_at: str, moisture: float, temp: flo
         conn.rollback()
 
 
+def send_email(boto_client: 'boto3.client.SES', email_of_botanist: str, subject: str, body: str) -> dict:
+    """Sends an email using AWS SES"""
+    response = boto_client.send_email(
+        Source=email_of_botanist,
+        Destination={
+            'ToAddresses': [email_of_botanist]
+        },
+        Message={
+            'Subject': {
+                'Data': subject
+            },
+            'Body': {
+                'Text': {
+                    'Data': body
+                }
+            }
+        }
+    )
+
+    return response
+
+
+def check_for_abnormal_levels(email_client: 'boto3.client.SES', cursor: pymssql.Cursor, plant_data: dict) -> None:
+    """Checks if the plant temperature and soil moisture is abnormal, and sends an email if necessary"""
+    botanist_to_send_email_to = plant_data[BOTANIST][EMAIL]
+
+    cursor.execute(f"""SELECT TOP 1 temp, moisture FROM readings WHERE plant_id = {
+                   plant_data[PLANT_ID]} ORDER BY reading_at DESC;""")
+
+    most_recent_reading = cursor.fetchone()
+    current_soil_moisture = plant_data[SOIL_MOISTURE]
+    current_temp = plant_data[TEMPERATURE]
+    if most_recent_reading:
+        previous_soil_moisture = float(most_recent_reading[1])
+        previous_temp = float(most_recent_reading[0])
+
+        if not MIN_SOIL_MOISTURE < current_soil_moisture < MAX_SOIL_MOISTURE and not MIN_SOIL_MOISTURE < previous_soil_moisture < MAX_SOIL_MOISTURE:
+            send_email(email_client, botanist_to_send_email_to, "Issue with moisture",
+                       "Good day to you, there seems to be an issue with moisture levels, please check it")
+
+        if not MIN_TEMP < current_temp < MAX_TEMP and not MIN_TEMP < previous_temp < MAX_TEMP:
+            send_email(email_client, botanist_to_send_email_to, "Issue with temperature",
+                       "Good day to you, there seems to be an issue with temperature levels, please check it")
+
+
 def apply_load_process(all_plant_data: dict) -> None:
     """Adds all information into their relevant table in the database"""
     con = create_connection(DB_HOST, DB_USERNAME,
                             DB_PASSWORD, DB_NAME)
     cur = con.cursor()
+
+    ses_client = boto3.client(
+        'ses', aws_access_key_id=ACCESS_KEY, aws_secret_access_key=SECRET_ACCESS_KEY)
 
     for plant in all_plant_data:
         if ERROR not in plant:
@@ -267,6 +324,8 @@ def apply_load_process(all_plant_data: dict) -> None:
                 plant[NAME], plant[SCIENTIFIC_NAME], DB_SCHEMA, con, cur)
             plant_checks(plant[PLANT_ID], plant[NAME],
                          plant[SCIENTIFIC_NAME], plant[ORIGIN_LOCATION], DB_SCHEMA, con, cur)
+
+            check_for_abnormal_levels(ses_client, cur, plant)
 
             add_reading_to_db(plant[PLANT_ID], plant[RECORDING_TAKEN], plant[SOIL_MOISTURE],
                               plant[TEMPERATURE], current_botanist_id, plant[LAST_WATERED], DB_SCHEMA, con, cur)
