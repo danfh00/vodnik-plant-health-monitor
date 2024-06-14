@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from load import check_if_botanist_in_db, add_botanist_to_db
+from load import check_if_botanist_in_db, add_botanist_to_db, botanist_checks
 
 
 @pytest.fixture

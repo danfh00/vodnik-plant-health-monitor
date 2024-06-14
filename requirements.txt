@@ -6,3 +6,5 @@ asyncio
 aiohttp
 pandas
 pytest
+pytest-cov
+boto3
