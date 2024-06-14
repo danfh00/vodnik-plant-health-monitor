@@ -3,21 +3,23 @@
 from extract import extract_data
 from transform import apply_transformations
 from load import apply_load_process
+import logging
 
 
 def handler(event=None, context=None):
-    print("Retrieving data")
+    logging.info("Retrieving data")
     initial_data = extract_data()
-    print("Data retrieved")
+    logging.info("Data retrieved")
 
-    print("Cleaning data")
+    logging.info("Cleaning data")
     cleaned_data = apply_transformations(initial_data)
-    print("Data cleaned")
+    logging.info("Data cleaned")
 
-    print("Loading data")
+    logging.info("Loading data")
     apply_load_process(cleaned_data)
-    print("Data loaded")
+    logging.info("Data loaded")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     handler()
