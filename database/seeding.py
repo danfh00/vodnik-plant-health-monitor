@@ -67,12 +67,8 @@ def get_unique_timezones(responses: list[str]) -> list[tuple]:
     return list(unique_timezones)
 
 
-def populate_timezones(timezone_name: list[tuple], schema: str) -> None:
+def populate_timezones(timezone_name: list[tuple], schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
     """Populates the timezones table"""
-    conn = create_connection(DB_HOST, DB_USERNAME,
-                             DB_PASSWORD, DB_NAME)
-    cursor = conn.cursor()
-
     try:
         cursor.executemany(
             f"INSERT INTO {schema}.timezones (timezone) VALUES (%s)", timezone_name)
@@ -80,9 +76,6 @@ def populate_timezones(timezone_name: list[tuple], schema: str) -> None:
     except Exception as e:
         print(f"Error: {e}")
         conn.rollback()
-    finally:
-        cursor.close()
-        conn.close()
 
 
 def get_unique_country_codes(responses: list[str]) -> list[tuple]:
@@ -99,12 +92,8 @@ def get_unique_country_codes(responses: list[str]) -> list[tuple]:
     return list(unique_country_codes)
 
 
-def populate_country_codes(country_codes: list[tuple], schema: str) -> None:
+def populate_country_codes(country_codes: list[tuple], schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
     """Populates the timezones table"""
-    conn = create_connection(DB_HOST, DB_USERNAME,
-                             DB_PASSWORD, DB_NAME)
-    cursor = conn.cursor()
-
     try:
         cursor.executemany(
             f"INSERT INTO {schema}.country_codes (country_code) VALUES (%s)", country_codes)
@@ -112,9 +101,6 @@ def populate_country_codes(country_codes: list[tuple], schema: str) -> None:
     except Exception as e:
         print(f"Error: {e}")
         conn.rollback()
-    finally:
-        cursor.close()
-        conn.close()
 
 
 def get_unique_locations(responses: list[str], timezone_map: dict, country_code_map: dict) -> list[tuple]:
@@ -141,11 +127,8 @@ def get_unique_locations(responses: list[str], timezone_map: dict, country_code_
     return list(unique_locations)
 
 
-def populate_locations(all_locations: list[tuple], schema: str) -> None:
+def populate_locations(all_locations: list[tuple], schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
     """Populates the locations table"""
-    conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
-    cursor = conn.cursor()
-
     try:
         cursor.executemany(
             f"INSERT INTO {schema}.locations (location_name, location_lat, location_lon, timezone_id, country_code_id) VALUES (%s, %s, %s, %s, %s)", all_locations)
@@ -153,9 +136,6 @@ def populate_locations(all_locations: list[tuple], schema: str) -> None:
     except Exception as e:
         print(f"Error: {e}")
         conn.rollback()
-    finally:
-        cursor.close()
-        conn.close()
 
 
 def extract_name_and_scientific_name(plant_data: dict) -> tuple:
@@ -173,11 +153,8 @@ def get_unique_plant_names(responses: list[str]) -> list[tuple]:
     return list(unique_plant_names)
 
 
-def populate_plant_species(all_plant_names: list[tuple], schema: str) -> None:
+def populate_plant_species(all_plant_names: list[tuple], schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
     """Populates the plan_names table with the provided names"""
-    conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
-    cursor = conn.cursor()
-
     try:
         cursor.executemany(
             f"INSERT INTO {schema}.plant_species (common_name, scientific_name) VALUES (%s, %s)", all_plant_names)
@@ -185,9 +162,6 @@ def populate_plant_species(all_plant_names: list[tuple], schema: str) -> None:
     except Exception as e:
         print(f"Error: {e}")
         conn.rollback()
-    finally:
-        cursor.close()
-        conn.close()
 
 
 def combine_plant_and_location_id(request_data: list[dict], plant_name_ids: dict, location_ids: dict) -> list[tuple]:
@@ -210,68 +184,45 @@ def combine_plant_and_location_id(request_data: list[dict], plant_name_ids: dict
     return list(full_data_for_plants)
 
 
-def populate_plants(plants_data: list[tuple], schema: str) -> None:
+def populate_plants(plants_data: list[tuple], schema: str, conn: pymssql.Connection, cursor: pymssql.Cursor) -> None:
     """Populates the plants table"""
-    conn = create_connection(DB_HOST, DB_USERNAME,
-                             DB_PASSWORD, DB_NAME)
-    cursor = conn.cursor()
-
     try:
         cursor.executemany(
-            f"INSERT INTO {schema}.plants (plant_id, naming_id, location_id) VALUES (%s, %s, %s)", plants_data)
+            f"INSERT INTO {schema}.plants (plant_id, species_id, location_id) VALUES (%s, %s, %s)", plants_data)
         conn.commit()
     except Exception as e:
         print(f"Error: {e}")
         conn.rollback()
-    finally:
-        cursor.close()
-        conn.close()
 
 
-def get_timezone_id_map(schema: str) -> dict:
+def get_timezone_id_map(schema: str, cursor: pymssql.Cursor) -> dict:
     """Creates a dict of each timezone and its associated ID"""
-    conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
-    cursor = conn.cursor()
     cursor.execute(f"SELECT timezone_id, timezone FROM {schema}.timezones")
     rows = cursor.fetchall()
-    cursor.close()
-    conn.close()
     return {row[1]: row[0] for row in rows}
 
 
-def get_country_code_id_map(schema: str) -> dict:
+def get_country_code_id_map(schema: str, cursor: pymssql.Cursor) -> dict:
     """Creates a dict of each country code and its associated ID"""
-    conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
-    cursor = conn.cursor()
     cursor.execute(f"SELECT country_code_id, country_code FROM {
                    schema}.country_codes")
     rows = cursor.fetchall()
-    cursor.close()
-    conn.close()
     return {row[1]: row[0] for row in rows}
 
 
-def get_locations_id_map(schema: str) -> dict:
+def get_locations_id_map(schema: str, cursor: pymssql.Cursor) -> dict:
     """Creates a dict of each location and its associated ID"""
-    conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
-    cursor = conn.cursor()
     cursor.execute(f"SELECT location_id, location_lat, location_lon FROM {
                    schema}.locations")
     rows = cursor.fetchall()
-    cursor.close()
-    conn.close()
     return {(float(row[1]), float(row[2])): row[0] for row in rows}
 
 
-def get_plant_names_id_map(schema: str) -> dict:
+def get_plant_names_id_map(schema: str, cursor: pymssql.Cursor) -> dict:
     """Creates a dict of each plant name and its associated ID"""
-    conn = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
-    cursor = conn.cursor()
     cursor.execute(f"SELECT species_id, common_name, scientific_name FROM {
                    schema}.plant_species")
     rows = cursor.fetchall()
-    cursor.close()
-    conn.close()
     return {(row[1], row[2]): row[0] for row in rows}
 
 
@@ -279,23 +230,29 @@ if __name__ == '__main__':
     all_plant_ids = range(0, 51)
     all_responses = asyncio.run(get_all_responses(all_plant_ids))
 
+    con = create_connection(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME)
+    cur = con.cursor()
+
     timezones = get_unique_timezones(all_responses)
-    populate_timezones(timezones, DB_SCHEMA)
+    populate_timezones(timezones, DB_SCHEMA, con, cur)
 
     all_country_codes = get_unique_country_codes(all_responses)
-    populate_country_codes(all_country_codes, DB_SCHEMA)
+    populate_country_codes(all_country_codes, DB_SCHEMA, con, cur)
 
-    timezone_mapping = get_timezone_id_map(DB_SCHEMA)
-    country_code_mapping = get_country_code_id_map(DB_SCHEMA)
+    timezone_mapping = get_timezone_id_map(DB_SCHEMA, cur)
+    country_code_mapping = get_country_code_id_map(DB_SCHEMA, cur)
     location_values = get_unique_locations(
         all_responses, timezone_mapping, country_code_mapping)
-    populate_locations(location_values, DB_SCHEMA)
+    populate_locations(location_values, DB_SCHEMA, con, cur)
 
     plant_names = get_unique_plant_names(all_responses)
-    populate_plant_species(plant_names, DB_SCHEMA)
+    populate_plant_species(plant_names, DB_SCHEMA, con, cur)
 
-    plant_names_mapping = get_plant_names_id_map(DB_SCHEMA)
-    location_mapping = get_locations_id_map(DB_SCHEMA)
+    plant_names_mapping = get_plant_names_id_map(DB_SCHEMA, cur)
+    location_mapping = get_locations_id_map(DB_SCHEMA, cur)
     data_to_add_to_plants = combine_plant_and_location_id(
         all_responses, plant_names_mapping, location_mapping)
-    populate_plants(data_to_add_to_plants, DB_SCHEMA)
+    populate_plants(data_to_add_to_plants, DB_SCHEMA, con, cur)
+
+    cur.close()
+    con.close()

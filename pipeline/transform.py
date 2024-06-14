@@ -1,44 +1,34 @@
-"This file cleans and processes plant data into a DataFrame "
-import pandas as pd
+"This file cleans and processes plant data"
+# pylint: disable=C0301, E1101
+from datetime import datetime
+import os
 import re
+from dotenv import load_dotenv
 
-from extract import extract_data
+load_dotenv()
 
-
-def extract_plant_data(plant_data: dict) -> dict:
-    """ Extracts all the relevant data from the API for a single plant"""
-    botanists_info = plant_data.get('botanist')
-    location_info = plant_data.get('origin_location')
-    scientific_name = plant_data.get('scientific_name')
-    data = {
-        "first_name": botanists_info.get('name').split()[0],
-        "last_name": botanists_info.get('name').split()[1],
-        "email": botanists_info.get('email'),
-        "phone_number": botanists_info.get('phone'),
-        "plant_id": plant_data.get('plant_id'),
-        "common_name": plant_data.get('name'),
-        "scientific_name": scientific_name[0] if scientific_name else None,
-        "reading_at": plant_data.get('recording_taken'),
-        "temperature": plant_data.get('temperature'),
-        "moisture": plant_data.get('soil_moisture'),
-        "watered_at": plant_data.get('last_watered'),
-        "location_name": location_info[2],
-        "location_lat": location_info[0],
-        "location_lon": location_info[1],
-        "country_code": location_info[3],
-        "timezone": location_info[4]
-    }
-    return data
-
-
-def create_plants_df(plants: list[dict]) -> pd.DataFrame:
-    """Created a DataFrame from a list of plant dictionaries"""
-    dataset = []
-    for plant in plants:
-        if not plant.get('error'):
-            dataset.append(extract_plant_data(plant))
-    plant_df = pd.DataFrame(dataset)
-    return plant_df
+DB_HOST = os.getenv('DB_HOST')
+DB_USERNAME = os.getenv('DB_USER')
+DB_PASSWORD = os.getenv('DB_PASSWORD')
+DB_NAME = os.getenv('DB_NAME')
+DB_SCHEMA = os.getenv('DB_SCHEMA')
+INDEX_OF_LAT = 0
+INDEX_OF_LON = 1
+INDEX_OF_NAME = 2
+INDEX_OF_CC = 3
+INDEX_OF_TIMEZONE = 4
+ORIGIN_LOCATION = "origin_location"
+NAME = "name"
+SCIENTIFIC_NAME = "scientific_name"
+PHONE = "phone"
+ERROR = "error"
+PLANT_ID = "plant_id"
+EMAIL = "email"
+BOTANIST = "botanist"
+LAST_WATERED = "last_watered"
+TEMPERATURE = "temperature"
+SOIL_MOISTURE = "soil_moisture"
+RECORDING_TAKEN = "recording_taken"
 
 
 def format_phone_number(number: str) -> str:
@@ -46,33 +36,51 @@ def format_phone_number(number: str) -> str:
     return re.sub(r'[^\d]', "", number)
 
 
-def clean_data(df: pd.DataFrame) -> pd.DataFrame:
-    """Cleans the data by changing to appropriate data types"""
-    string_cols = ["first_name", "last_name", "email",
-                   "phone_number", "common_name", "scientific_name"]
-    df[string_cols] = df[string_cols].astype(str)
-    df['watered_at'] = pd.to_datetime(df['watered_at'])
-    df['reading_at'] = pd.to_datetime(df['reading_at'])
-    df['phone_number'] = df['phone_number'].apply(format_phone_number)
-    return df
+def format_recording_taken(date: str) -> datetime:
+    """Converts a given date for 'record_taken' to datetime and then formats it correctly for storing it in the database"""
+    parsed_date = datetime.strptime(date, '%Y-%m-%d %H:%M:%S')
+    return parsed_date.strftime('%Y-%m-%d %H:%M:%S')
 
 
-def transform() -> tuple:
-    """Transforms plant data into a clean and useable DataFrame """
-    plants = extract_data()
-    df = create_plants_df(plants)
-    plants_df = clean_data(df)
-
-    botanists = plants_df[['first_name', 'last_name', 'phone_number', 'email']]
-    plants = plants_df[['plant_id', 'common_name', 'scientific_name']]
-    readings = plants_df[['plant_id', 'reading_at', 'moisture',
-                         'temperature', 'watered_at']]
-    locations = plants_df[['location_name', 'location_lat',
-                          'location_lon', 'country_code', 'timezone']]
-
-    return botanists, plants, readings, locations
+def format_watered_at(date: str) -> datetime:
+    """Converts a given date for 'watered_at' to datetime and then formats it correctly for storing it in the database"""
+    parsed_date = datetime.strptime(date, '%a, %d %b %Y %H:%M:%S %Z')
+    return parsed_date.strftime('%Y-%m-%d %H:%M:%S')
 
 
-if __name__ == '__main__':
-    data = transform()
-    print(data)
+def apply_transformations(all_plant_data: dict) -> dict:
+    """Applies transformation to plants and gets each value to the correct data type"""
+    formatted_data = []
+
+    for plant in all_plant_data:
+        if ERROR not in plant:
+            try:
+                plant_scientific_name = plant[SCIENTIFIC_NAME][0].lower(
+                ) if SCIENTIFIC_NAME in plant else None
+                plant_name = plant[NAME].lower()
+                current_plant_id = plant[PLANT_ID]
+
+                plant_watered_at = format_watered_at(plant[LAST_WATERED])
+                current_temp = float(plant[TEMPERATURE])
+                current_moisture = float(plant[SOIL_MOISTURE])
+                plant_reading_at = format_recording_taken(
+                    plant[RECORDING_TAKEN])
+                lat = float(plant[ORIGIN_LOCATION][INDEX_OF_LAT])
+                lon = float(plant[ORIGIN_LOCATION][INDEX_OF_LON])
+                city_name = plant[ORIGIN_LOCATION][INDEX_OF_NAME]
+                country_code = plant[ORIGIN_LOCATION][INDEX_OF_CC]
+                timezone = plant[ORIGIN_LOCATION][INDEX_OF_TIMEZONE]
+
+                botanist_phone = format_phone_number(plant[BOTANIST][PHONE])
+                botanist_email = plant[BOTANIST][EMAIL]
+                botanist_name = plant[BOTANIST][NAME]
+
+                formatted_data.append({"plant_id": current_plant_id, "name": plant_name, "scientific_name": plant_scientific_name,
+                                       "last_watered": plant_watered_at, "temperature": current_temp, "soil_moisture": current_moisture,
+                                       "reading_at": plant_reading_at, "origin_location": [lat, lon, city_name, country_code, timezone],
+                                       "botanist": {"name": botanist_name, "email": botanist_email, "phone": botanist_phone}})
+            except (KeyError, IndexError):
+                print("Missing data, skipping this plant")
+                continue
+
+    return formatted_data

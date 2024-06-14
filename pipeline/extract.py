@@ -25,7 +25,3 @@ def extract_data() -> list[dict]:
     """ Extracts data for multiple plants asynchronously."""
     all_plant_ids = range(1, 51)
     return asyncio.run(get_all_responses(all_plant_ids))
-
-
-if __name__ == '__main__':
-    print(extract_data())
