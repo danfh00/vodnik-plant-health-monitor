@@ -1,3 +1,4 @@
+"""Extracts from s3 bucket"""
 import os
 from boto3 import client
 import pandas as pd
@@ -30,7 +31,8 @@ def download_files(s3: client, file: str, bucket_name: str) -> None:
         bucket_name, file['Key'], "historical_data.csv")
 
 
-def download_historical_data():
+def download_historical_data() -> pd.DataFrame:
+    """Downloads the latest data from the s3 bucket and converts it into a df"""
     client = get_aws_client()
     bucket_name = "vodnik-historical-plant-readings"
     objects = get_bucket(client, bucket_name)
