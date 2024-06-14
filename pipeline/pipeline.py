@@ -4,7 +4,8 @@ from extract import extract_data
 from transform import apply_transformations
 from load import apply_load_process
 
-if __name__ == "__main__":
+
+def handler(event=None, context=None):
     print("Retrieving data")
     initial_data = extract_data()
     print("Data retrieved")
@@ -16,3 +17,7 @@ if __name__ == "__main__":
     print("Loading data")
     apply_load_process(cleaned_data)
     print("Data loaded")
+
+
+if __name__ == "__main__":
+    handler()

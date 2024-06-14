@@ -27,7 +27,7 @@ GO
 
 CREATE TABLE gamma.plant_species(
     species_id SMALLINT IDENTITY(1, 1) PRIMARY KEY,
-    common_name VARCHAR(100) UNIQUE NOT NULL,
+    common_name VARCHAR(100) NOT NULL,
     scientific_name VARCHAR(100)
 );
 GO

@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from load import check_if_botanist_in_db, add_botanist_to_db, check_if_timezone_in_db, add_timezone_to_db, check_if_country_code_in_db, add_country_code_to_db, check_if_location_in_db, add_location_to_db, check_if_species_in_db, add_species_to_db, check_if_plant_in_db, add_plant_to_db, botanist_checks, timezone_checks, country_code_checks, location_checks, plant_species_checks, plant_checks
+from load import check_if_botanist_in_db, add_botanist_to_db, check_if_timezone_in_db, add_timezone_to_db, check_if_country_code_in_db, add_country_code_to_db, check_if_location_in_db, add_location_to_db, check_if_species_in_db, add_species_to_db, check_if_plant_in_db, add_plant_to_db, botanist_checks, timezone_checks, country_code_checks, location_checks, plant_species_checks, plant_checks, botanist_checks
 
 
 @pytest.fixture
