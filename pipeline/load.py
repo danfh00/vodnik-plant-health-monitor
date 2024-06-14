@@ -36,6 +36,7 @@ MIN_SOIL_MOISTURE = 21
 MAX_SOIL_MOISTURE = 41
 MIN_TEMP = 7
 MAX_TEMP = 38
+TOPIC_ARN = "arn:aws:sns:eu-west-2:129033205317:vodnik-you-got-mail"
 
 
 def create_connection(host: str, username: str, password: str, database_name: str) -> pymssql.Connection:
@@ -257,32 +258,17 @@ def add_reading_to_db(plant_id: int, reading_at: str, moisture: float, temp: flo
         conn.rollback()
 
 
-def send_email(boto_client: 'boto3.client.SES', email_of_botanist: str, subject: str, body: str) -> dict:
-    """Sends an email using AWS SES"""
-    response = boto_client.send_email(
-        Source=email_of_botanist,
-        Destination={
-            'ToAddresses': [email_of_botanist]
-        },
-        Message={
-            'Subject': {
-                'Data': subject
-            },
-            'Body': {
-                'Text': {
-                    'Data': body
-                }
-            }
-        }
+def send_notification(boto_client: 'boto3.client.SNS', subject: str, body: str) -> None:
+    """Sends a notification using AWS SNS"""
+    boto_client.publish(
+        TopicArn=TOPIC_ARN,
+        Message=body,
+        Subject=subject
     )
 
-    return response
 
-
-def check_for_abnormal_levels(email_client: 'boto3.client.SES', cursor: pymssql.Cursor, plant_data: dict) -> None:
+def check_for_abnormal_levels(email_client: 'boto3.client.SNS', cursor: pymssql.Cursor, plant_data: dict) -> None:
     """Checks if the plant temperature and soil moisture is abnormal, and sends an email if necessary"""
-    botanist_to_send_email_to = plant_data[BOTANIST][EMAIL]
-
     cursor.execute(f"""SELECT TOP 1 temp, moisture FROM readings WHERE plant_id = {
                    plant_data[PLANT_ID]} ORDER BY reading_at DESC;""")
 
@@ -294,12 +280,12 @@ def check_for_abnormal_levels(email_client: 'boto3.client.SES', cursor: pymssql.
         previous_temp = float(most_recent_reading[0])
 
         if not MIN_SOIL_MOISTURE < current_soil_moisture < MAX_SOIL_MOISTURE and not MIN_SOIL_MOISTURE < previous_soil_moisture < MAX_SOIL_MOISTURE:
-            send_email(email_client, botanist_to_send_email_to, "Issue with moisture",
-                       "Good day to you, there seems to be an issue with moisture levels, please check it")
+            send_notification(email_client, "Issue with moisture",
+                              "Good day to you, there seems to be an issue with moisture levels, please check it")
 
         if not MIN_TEMP < current_temp < MAX_TEMP and not MIN_TEMP < previous_temp < MAX_TEMP:
-            send_email(email_client, botanist_to_send_email_to, "Issue with temperature",
-                       "Good day to you, there seems to be an issue with temperature levels, please check it")
+            send_notification(email_client, "Issue with temperature",
+                              "Good day to you, there seems to be an issue with temperature levels, please check it")
 
 
 def apply_load_process(all_plant_data: dict) -> None:
@@ -308,8 +294,8 @@ def apply_load_process(all_plant_data: dict) -> None:
                             DB_PASSWORD, DB_NAME)
     cur = con.cursor()
 
-    ses_client = boto3.client(
-        'ses', aws_access_key_id=ACCESS_KEY, aws_secret_access_key=SECRET_ACCESS_KEY)
+    sns_client = boto3.client(
+        'sns', aws_access_key_id=ACCESS_KEY, aws_secret_access_key=SECRET_ACCESS_KEY)
 
     for plant in all_plant_data:
         if ERROR not in plant:
@@ -325,7 +311,7 @@ def apply_load_process(all_plant_data: dict) -> None:
             plant_checks(plant[PLANT_ID], plant[NAME],
                          plant[SCIENTIFIC_NAME], plant[ORIGIN_LOCATION], DB_SCHEMA, con, cur)
 
-            check_for_abnormal_levels(ses_client, cur, plant)
+            check_for_abnormal_levels(sns_client, cur, plant)
 
             add_reading_to_db(plant[PLANT_ID], plant[RECORDING_TAKEN], plant[SOIL_MOISTURE],
                               plant[TEMPERATURE], current_botanist_id, plant[LAST_WATERED], DB_SCHEMA, con, cur)
