@@ -1,0 +1,10 @@
+pylint
+pytest
+pymssql
+python-dotenv
+asyncio
+aiohttp
+pandas
+pytest
+pytest-cov
+boto3
