@@ -246,7 +246,6 @@ if __name__ == '__main__':
     populate_locations(location_values, DB_SCHEMA, con, cur)
 
     plant_names = get_unique_plant_names(all_responses)
-    print(plant_names)
     populate_plant_species(plant_names, DB_SCHEMA, con, cur)
 
     plant_names_mapping = get_plant_names_id_map(DB_SCHEMA, cur)
