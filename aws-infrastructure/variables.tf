@@ -1,15 +1,14 @@
-variable "ACCESS_KEY" {
+variable "AWS_ACCESS_KEY" {
     type = string
   
 }
-variable "SECRET_ACCESS_KEY" {
+variable "AWS_SECRET_ACCESS_KEY" {
     type = string
   
 }
 variable "AWS_REGION" {
     type = string
-    default = "eu-west-2"
-  
+    default = "eu-west-2" 
 }
 
 variable "DB_HOST" {
@@ -34,10 +33,6 @@ variable "DB_NAME" {
 }
 
 variable "DB_SCHEMA" {
-    type = string
-}
-
-variable "STORAGE_BUCKET_NAME" {
     type = string
 }
 
