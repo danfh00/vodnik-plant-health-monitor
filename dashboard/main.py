@@ -26,8 +26,6 @@ def get_locations_data(conn: pymssql.Connection) -> pd.DataFrame:
     df = pd.DataFrame(query)
     return df
 
-# UPDATE THE WHERE CLAUSE when the pipeline is fully running
-
 
 def get_readings_data(conn: pymssql.Connection) -> pd.DataFrame:
     "Returns locations data from database as a dataframe"
@@ -114,16 +112,17 @@ def get_latest_temperature_chart(latest_data: pd.DataFrame) -> alt.Chart:
     ).interactive()
 
 
-def get_average_moisture_chart(data: pd.DataFrame) -> alt.Chart:
+def get_average_moisture_chart(data: pd.DataFrame, plant_id: int) -> alt.Chart:
     """Creates a line graph of moisture over time for a given plant id"""
     y_min = data['moisture'].min()
     y_max = data['moisture'].max()
     data['reading_at'] = pd.to_datetime(data['reading_at'])
 
-    chart = alt.Chart(data).mark_line().encode(
+    moisture_data = data[data["plant_id"] == plant_id]
+    chart = alt.Chart(moisture_data).mark_line().encode(
         x=alt.X('reading_at:T', axis=alt.Axis(title='Time')),
         y=alt.Y('moisture:Q', scale=alt.Scale(
-            domain=[y_min-1, y_max+1]), axis=alt.Axis(title='Moisture'))
+            domain=[y_min-1, y_max+1]), axis=alt.Axis(title='Moisture')),
     ).properties(
         width=700,
         height=600,
@@ -132,17 +131,18 @@ def get_average_moisture_chart(data: pd.DataFrame) -> alt.Chart:
     return chart
 
 
-def get_average_temperature_chart(data: pd.DataFrame) -> alt.Chart:
+def get_average_temperature_chart(data: pd.DataFrame, plant_id: int) -> alt.Chart:
     """Creates a line graph of temperature over time for a given plant id"""
     y_min = data['temp'].min()
     y_max = data['temp'].max()
 
-    chart = alt.Chart(data).mark_line().encode(
+    temp_data = data[data["plant_id"] == plant_id]
+    chart = alt.Chart(temp_data).mark_line().encode(
         x=alt.X('reading_at:T', axis=alt.Axis(title='Time')),
         y=alt.Y('temp:Q', scale=alt.Scale(
             domain=[y_min, y_max]), axis=alt.Axis(title='Temperature'))
     ).properties(
-        width=700,
+        width=2000,
         height=600,
     ).interactive()
 
@@ -156,22 +156,24 @@ def build_dashboard():
     readings_df = get_readings_data(conn)
     historical_data = download_historical_data()
 
-    st.title("LNMH Plant Health Dashboard🍀")
+    st.title("LNMH Plant Health Dashboard🌳")
 
     tab_location, tab_latest, tab_historical = st.tabs(
         ["Location", "Latest Analysis", "Historical Analysis"])
 
     with tab_historical:
         # Uses data from the s3 bucket. Currently using data from database
-        st.write("Plant")
+        st.markdown("## Plant Filter")
+        plant_ids = readings_df['plant_id'].unique().tolist()
+        plant_option = st.selectbox("Choose a plant", plant_ids)
         st.header(f'🌡️ Temperature Readings 🌡️')
         st.write(get_average_temperature_chart(
-            historical_data))
+            historical_data, plant_option))
 
         st.header(f'💧 Soil Moisture Readings 💧')
 
         st.write(get_average_moisture_chart(
-            historical_data))
+            historical_data, plant_option))
 
     with tab_location:
         # Location Map
@@ -181,14 +183,14 @@ def build_dashboard():
 
     with tab_latest:
         # Pulls from the database
+
         st.header('Latest Moisture Readings 💧 ')
         st.write(get_latest_moisture_chart(readings_df))
-
         st.header('Latest Temperature Readings 🌡️')
         st.write(get_latest_temperature_chart(readings_df))
 
     #  Plant name filter
-        st.write("Plant Filter")
+        st.subheader("Plant Filter")
         plant_names = readings_df['common_name'].unique().tolist()
         plant_option = st.selectbox("Choose a plant", plant_names)
 
@@ -206,8 +208,4 @@ def build_dashboard():
 
 if __name__ == '__main__':
     load_dotenv()
-    conn = create_connection()
-    locations_df = get_locations_data(conn)
-    readings_df = get_readings_data(conn)
-
     build_dashboard()
