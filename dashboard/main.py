@@ -1,3 +1,4 @@
+"""Dashboard Script"""
 import os
 import altair as alt
 import pymssql
@@ -5,13 +6,6 @@ from dotenv import load_dotenv
 import pandas as pd
 import streamlit as st
 from extract_bucket import download_historical_data
-
-"""
-TO DO: 
-- Add docstrings/ pylint score
-- Run with more data to see how historical data graphs look
-- Dockerise : run locally, upload, run on cloud 
-"""
 
 
 def create_connection() -> pymssql.Connection:
@@ -32,18 +26,22 @@ def get_locations_data(conn: pymssql.Connection) -> pd.DataFrame:
     df = pd.DataFrame(query)
     return df
 
+# UPDATE THE WHERE CLAUSE when the pipeline is fully running
+
 
 def get_readings_data(conn: pymssql.Connection) -> pd.DataFrame:
     "Returns locations data from database as a dataframe"
     query = pd.read_sql("""SELECT ps.common_name, r.reading_at, r.moisture, r.temp, r.watered_at
                     FROM gamma.readings AS r
                     JOIN gamma.plants AS p ON r.plant_id = p.plant_id
-                    JOIN gamma.plant_species AS ps ON p.species_id = ps.species_id;""", conn)
+                    JOIN gamma.plant_species AS ps ON p.species_id = ps.species_id
+                    WHERE reading_at > DATEADD(minute, -30, (SELECT CURRENT_TIMESTAMP));""", conn)
     df = pd.DataFrame(query)
     return df
 
 
 def get_moisture_chart_single_plant(data: pd.DataFrame, plant_choice: str) -> alt.Chart:
+    """Creates a line graph of moisture over time for a given plant id"""
     y_min = data['moisture'].min()
     y_max = data['moisture'].max()
     data['reading_at'] = pd.to_datetime(data['reading_at'])
@@ -62,13 +60,14 @@ def get_moisture_chart_single_plant(data: pd.DataFrame, plant_choice: str) -> al
 
 
 def get_temperature_chart_single_plant(data: pd.DataFrame, plant_choice) -> alt.Chart:
-    y_min = data['temperature'].min()
-    y_max = data['temperature'].max()
+    """Creates a line graph of temperature over time for a given plant id"""
+    y_min = data['temp'].min()
+    y_max = data['temp'].max()
 
     temp_data = data[data["plant_id"] == plant_choice]
     chart = alt.Chart(temp_data).mark_line().encode(
         x=alt.X('reading_at:T', axis=alt.Axis(title='Time')),
-        y=alt.Y('temperature:Q', scale=alt.Scale(
+        y=alt.Y('temp:Q', scale=alt.Scale(
             domain=[y_min, y_max]), axis=alt.Axis(title='Temperature'))
     ).properties(
         width=700,
@@ -79,6 +78,7 @@ def get_temperature_chart_single_plant(data: pd.DataFrame, plant_choice) -> alt.
 
 
 def get_latest_moisture_chart(latest_data: pd.DataFrame) -> alt.Chart:
+    """Creates a bar chart of current moisture readings for all plants"""
     return alt.Chart(latest_data).mark_bar().encode(
         y=alt.Y('common_name:N', sort='-x', title='Plant name'),
         x=alt.X('moisture:Q', title='Soil Moisture'),
@@ -91,6 +91,7 @@ def get_latest_moisture_chart(latest_data: pd.DataFrame) -> alt.Chart:
 
 
 def get_latest_temperature_chart(latest_data: pd.DataFrame) -> alt.Chart:
+    """Creates a bar chart of current temperature readings for all plants"""
     return alt.Chart(latest_data).mark_bar().encode(
         y=alt.Y('common_name:N', sort='-x', title='Plant name'),
         x=alt.X('temp:Q', title='Temperature'),
