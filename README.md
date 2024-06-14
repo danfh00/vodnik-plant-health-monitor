@@ -38,7 +38,7 @@ To install the required dependencies, use the following commands:
 
 For a visual representation of the project architecture, refer to the diagram below.
 
-![Architecture Diagram](https://github.com/danfh00/vodnik-plant-health-monitor/blob/main/Diagrams/plant_monitor_architecture.png?raw=true)
+![Architecture Diagram](https://github.com/danfh00/vodnik-plant-health-monitor/blob/main/Diagrams/architecture_diagram_V2.png)
 
 ## Database Schema
 
@@ -55,9 +55,8 @@ For a visual representation of the database schema, refer to the Entity-Relation
 
 | ✨ KEY | Placeholder |
 |---|---|
-|---|---|
-|  DB_HOST | localhost |
-|  DB_PORT  |  3306 |
+|  DB_HOST | _localhost_ |
+|  DB_PORT  |  _3306_ |
 |  DB_PASSWORD  |  *your_username*  |
 |  DB_USER  |  *your_password*  |
 |  DB_NAME  |  *your_db_name*  |
